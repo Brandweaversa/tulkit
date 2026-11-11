@@ -45,7 +45,6 @@
 
 :root {
   --radius: 0.625rem;
-  /* Powder blue tint background — cards stay white for contrast */
   --background: oklch(0.95 0.025 230);
   --foreground: oklch(0.18 0.02 230);
   --card: oklch(1 0 0);
@@ -117,7 +116,13 @@
   * {
     @apply border-border outline-ring/50;
   }
+
+  html {
+    font-family: var(--font-inter), sans-serif;
+  }
+
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-inter), sans-serif;
   }
 }
