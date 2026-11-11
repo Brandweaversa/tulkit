@@ -19,8 +19,8 @@ export const metadata: Metadata = {
   keywords: ["Tulkit", "invoice", "quote", "PDF", "WhatsApp", "email", "freelancer", "small business", "South Africa"],
   authors: [{ name: "Brandweaver" }],
   icons: {
-    icon: "/tulkit.png",
-    apple: "/tulkit.png",
+    icon: "/tulkit-icon-main.png",
+    apple: "/tulkit-icon-main.png",
   },
   openGraph: {
     title: "Tulkit — Invoices & Quotes Made Easy",
@@ -30,7 +30,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Tulkit — Invoices & Quotes Made Easy",
-    description: "Create invoices and quotes, generate PDFs, share via WhatsApp or email. Powered by Brandweaver.",
+    description: "Create invoices and quotes, generate PDFs, share via WhatsApp or email.",
   },
 };
 
