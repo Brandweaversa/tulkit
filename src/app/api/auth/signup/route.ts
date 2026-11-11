@@ -22,17 +22,20 @@ export async function POST(request: Request) {
   }
 
   const supabase = await createClient();
+  const redirectTo = `${new URL(request.url).origin}/auth/callback`;
+
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
+    options: {
+      emailRedirectTo: redirectTo,
+    },
   });
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
-  // Create a BusinessProfile for the new user
-  // ensureBusinessProfile handles admin auto-assign for first user
   if (data.user) {
     try {
       const userCount = await db.businessProfile.count();
@@ -41,13 +44,10 @@ export async function POST(request: Request) {
         data: { userId: data.user.id, role },
       });
     } catch (e) {
-      // Profile might already exist
       console.error("Failed to create business profile:", e);
     }
   }
 
-  // If Supabase returned a session, email confirmation is OFF — auto-login works.
-  // If no session, email confirmation is ON — user needs to check email.
   const requiresEmailConfirmation = !data.session;
 
   return NextResponse.json({
