@@ -15,7 +15,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Users, Crown, Clock, TrendingUp, UserCheck, UserX } from "lucide-react";
+import { Users, Crown, Clock, TrendingUp, Trash2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { FEATURE_KEYS, FEATURE_LABELS } from "@/lib/types";
 import type { FeatureKey } from "@/lib/types";
@@ -50,6 +50,7 @@ export function AdminDashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   const [subscribeUser, setSubscribeUser] = useState<AdminUser | null>(null);
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
 
   async function loadData() {
     try {
@@ -57,20 +58,27 @@ export function AdminDashboard() {
         fetch("/api/admin/users"),
         fetch("/api/admin/stats"),
       ]);
+      if (!usersRes.ok || !statsRes.ok) {
+        throw new Error("Could not load admin data.");
+      }
       const usersData = await usersRes.json();
       const statsData = await statsRes.json();
       setUsers(usersData.users ?? []);
       setStats(statsData);
-    } catch (e) {
-      console.error(e);
-      toast({ title: "Failed to load admin data", variant: "destructive" });
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: "Failed to load admin data",
+        description: error instanceof Error ? error.message : undefined,
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    loadData();
+    void loadData();
   }, []);
 
   async function handleSubscribe(
@@ -79,25 +87,25 @@ export function AdminDashboard() {
     features: FeatureKey[],
   ) {
     try {
-      const res = await fetch(`/api/admin/users/${userId}/subscribe`, {
+      const res = await fetch(`/api/admin/users/${encodeURIComponent(userId)}/subscribe`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ durationDays, features }),
       });
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.error || "Failed");
+        throw new Error(err.error || "Failed to activate subscription.");
       }
       toast({
         title: "Subscription activated",
         description: `User has ${durationDays} days of Pro access.`,
       });
       setSubscribeUser(null);
-      loadData();
-    } catch (e) {
+      await loadData();
+    } catch (error) {
       toast({
         title: "Failed to activate subscription",
-        description: e instanceof Error ? e.message : "Unknown error",
+        description: error instanceof Error ? error.message : "Unknown error",
         variant: "destructive",
       });
     }
@@ -106,11 +114,52 @@ export function AdminDashboard() {
   async function handleRevoke(userId: string) {
     if (!confirm("Revoke this user's subscription?")) return;
     try {
-      await fetch(`/api/admin/users/${userId}/subscribe`, { method: "DELETE" });
+      const res = await fetch(`/api/admin/users/${encodeURIComponent(userId)}/subscribe`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to revoke subscription.");
+      }
       toast({ title: "Subscription revoked" });
-      loadData();
-    } catch {
-      toast({ title: "Failed to revoke", variant: "destructive" });
+      await loadData();
+    } catch (error) {
+      toast({
+        title: "Failed to revoke subscription",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+      });
+    }
+  }
+
+  async function handleDelete(user: AdminUser) {
+    const confirmed = confirm(
+      `Permanently delete ${user.email || user.name}? This removes their Tulkit profile, clients, invoices, quotes, and Supabase sign-in account. This cannot be undone.`,
+    );
+    if (!confirmed) return;
+
+    setDeletingUserId(user.userId);
+    try {
+      const res = await fetch(`/api/admin/users/${encodeURIComponent(user.userId)}`, {
+        method: "DELETE",
+      });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(result.error || "Failed to delete user.");
+      }
+      toast({
+        title: "User deleted",
+        description: `${user.email || user.name} and their Tulkit data were removed.`,
+      });
+      await loadData();
+    } catch (error) {
+      toast({
+        title: "Failed to delete user",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setDeletingUserId(null);
     }
   }
 
@@ -127,7 +176,6 @@ export function AdminDashboard() {
         </p>
       </div>
 
-      {/* Stats */}
       {stats && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <StatCard icon={<Users className="h-4 w-4" />} label="Total users" value={String(stats.totalUsers)} />
@@ -143,7 +191,6 @@ export function AdminDashboard() {
         </div>
       )}
 
-      {/* Users table */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Users</CardTitle>
@@ -155,33 +202,44 @@ export function AdminDashboard() {
             </div>
           ) : (
             <div className="divide-y">
-              {users.map((u) => (
-                <div key={u.id} className="px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
+              {users.map((user) => (
+                <div key={user.id} className="px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-medium text-sm truncate">{u.name || u.email || "Unknown"}</span>
-                      {u.role === "admin" && (
+                      <span className="font-medium text-sm truncate">{user.name || user.email || "Unknown"}</span>
+                      {user.role === "admin" && (
                         <Badge variant="secondary" className="bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300">
                           <Crown className="h-3 w-3 mr-1" /> Admin
                         </Badge>
                       )}
-                      <StatusBadge status={u.subscriptionStatus} days={u.daysRemaining} />
+                      <StatusBadge status={user.subscriptionStatus} days={user.daysRemaining} />
                     </div>
                     <div className="text-xs text-muted-foreground truncate">
-                      {u.email} · joined {new Date(u.createdAt).toLocaleDateString()}
+                      {user.email} · joined {new Date(user.createdAt).toLocaleDateString()}
                     </div>
                   </div>
                   <div className="flex gap-2 shrink-0">
-                    {u.role !== "admin" && (
+                    {user.role !== "admin" && (
                       <>
-                        <Button size="sm" variant="outline" onClick={() => setSubscribeUser(u)}>
-                          {u.subscriptionStatus === "active" ? "Extend" : "Activate"}
+                        <Button size="sm" variant="outline" onClick={() => setSubscribeUser(user)}>
+                          {user.subscriptionStatus === "active" ? "Extend" : "Activate"}
                         </Button>
-                        {u.subscriptionStatus === "active" && (
-                          <Button size="sm" variant="ghost" className="text-destructive" onClick={() => handleRevoke(u.id)}>
+                        {user.subscriptionStatus === "active" && (
+                          <Button size="sm" variant="ghost" className="text-destructive" onClick={() => handleRevoke(user.id)}>
                             Revoke
                           </Button>
                         )}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-destructive hover:text-destructive"
+                          disabled={deletingUserId !== null}
+                          onClick={() => void handleDelete(user)}
+                          aria-label={`Permanently delete ${user.email || user.name}`}
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          {deletingUserId === user.userId ? "Deleting..." : "Delete"}
+                        </Button>
                       </>
                     )}
                   </div>
@@ -192,7 +250,6 @@ export function AdminDashboard() {
         </CardContent>
       </Card>
 
-      {/* Subscribe dialog */}
       {subscribeUser && (
         <SubscribeDialog
           user={subscribeUser}
@@ -276,9 +333,11 @@ function SubscribeDialog({
     user.allocatedFeatures.length > 0 ? user.allocatedFeatures : [...FEATURE_KEYS],
   );
 
-  function toggleFeature(f: FeatureKey) {
-    setSelectedFeatures((prev) =>
-      prev.includes(f) ? prev.filter((x) => x !== f) : [...prev, f],
+  function toggleFeature(feature: FeatureKey) {
+    setSelectedFeatures((previous) =>
+      previous.includes(feature)
+        ? previous.filter((item) => item !== feature)
+        : [...previous, feature],
     );
   }
 
@@ -300,7 +359,7 @@ function SubscribeDialog({
               min={1}
               max={365}
               value={days}
-              onChange={(e) => setDays(Number(e.target.value) || 30)}
+              onChange={(event) => setDays(Number(event.target.value) || 30)}
             />
             <p className="text-xs text-muted-foreground">Default: 30 days. R99 recommended.</p>
           </div>
@@ -308,32 +367,24 @@ function SubscribeDialog({
           <div className="space-y-2">
             <Label>Features to allocate</Label>
             <div className="space-y-2 max-h-60 overflow-y-auto rounded-md border p-3">
-              {FEATURE_KEYS.map((f) => (
-                <div key={f} className="flex items-center space-x-2">
+              {FEATURE_KEYS.map((feature) => (
+                <div key={feature} className="flex items-center space-x-2">
                   <Checkbox
-                    id={`feat-${f}`}
-                    checked={selectedFeatures.includes(f)}
-                    onCheckedChange={() => toggleFeature(f)}
+                    id={`feat-${feature}`}
+                    checked={selectedFeatures.includes(feature)}
+                    onCheckedChange={() => toggleFeature(feature)}
                   />
-                  <Label htmlFor={`feat-${f}`} className="text-sm cursor-pointer">
-                    {FEATURE_LABELS[f]}
+                  <Label htmlFor={`feat-${feature}`} className="text-sm cursor-pointer">
+                    {FEATURE_LABELS[feature]}
                   </Label>
                 </div>
               ))}
             </div>
             <div className="flex gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setSelectedFeatures([...FEATURE_KEYS])}
-              >
+              <Button size="sm" variant="outline" onClick={() => setSelectedFeatures([...FEATURE_KEYS])}>
                 Select all
               </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setSelectedFeatures([])}
-              >
+              <Button size="sm" variant="outline" onClick={() => setSelectedFeatures([])}>
                 Clear
               </Button>
             </div>
