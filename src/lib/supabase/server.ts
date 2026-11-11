@@ -1,25 +1,35 @@
+
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
 // Server-side Supabase client for Route Handlers and Server Components.
 export async function createClient() {
   const cookieStore = await cookies();
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error("Missing Supabase environment variables.");
+  }
+
   return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    supabaseUrl,
+    supabaseAnonKey,
     {
       cookies: {
         getAll() {
           return cookieStore.getAll();
         },
+
         setAll(cookiesToSet) {
           try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options),
-            );
+            cookiesToSet.forEach(({ name, value, options }) => {
+              cookieStore.set(name, value, options);
+            });
           } catch {
-            // The `setAll` method was called from a Server Component.
-            // Safe to ignore if you have middleware refreshing sessions.
+            // Server Components cannot directly set cookies.
+            // Middleware should handle session refreshing.
           }
         },
       },
