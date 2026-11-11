@@ -11,8 +11,29 @@ import { toast } from "@/hooks/use-toast";
 
 type Mode = "signin" | "signup";
 
-// Email regex — basic format validation
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function friendlyAuthError(error: unknown, mode: Mode): string {
+  const message = error instanceof Error ? error.message : "Something went wrong. Please try again.";
+  const normalized = message.toLowerCase();
+
+  if (mode === "signin" && (normalized.includes("invalid login credentials") || normalized.includes("user not found"))) {
+    // Supabase intentionally uses the same response for an unknown email and a
+    // wrong password, so don't claim which one is wrong.
+    return "We couldn't sign you in. Check your email and password. If you haven't created an account yet, choose Sign up.";
+  }
+  if (mode === "signup" && (normalized.includes("already registered") || normalized.includes("already been registered") || normalized.includes("user already registered"))) {
+    return "An account with this email may already exist. Try signing in instead.";
+  }
+  if (normalized.includes("email rate limit exceeded") || normalized.includes("rate limit")) {
+    return "Too many attempts right now. Please wait a while before trying again.";
+  }
+  if (normalized.includes("password should be at least") || normalized.includes("password is too short")) {
+    return "Your password doesn't meet the minimum length requirement.";
+  }
+
+  return message;
+}
 
 export function AuthForm() {
   const signIn = useStore((s) => s.signIn);
@@ -28,25 +49,37 @@ export function AuthForm() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  function validateEmail(newErrors: Record<string, string>) {
+    const normalizedEmail = email.trim();
+    if (!normalizedEmail) {
+      newErrors.email = "Email is required.";
+    } else if (normalizedEmail.length > 254) {
+      newErrors.email = "Email address must be 254 characters or fewer.";
+    } else if (!EMAIL_REGEX.test(normalizedEmail)) {
+      newErrors.email = "Enter a valid email address, like name@example.com.";
+    }
+  }
+
   function validateSignup(): boolean {
     const newErrors: Record<string, string> = {};
-
-    if (!email) {
-      newErrors.email = "Email is required";
-    } else if (!EMAIL_REGEX.test(email)) {
-      newErrors.email = "Please enter a valid email address";
-    }
+    validateEmail(newErrors);
 
     if (!password) {
-      newErrors.password = "Password is required";
-    } else if (password.length < 8) {
-      newErrors.password = "Password must be at least 8 characters";
-    } else if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password)) {
-      newErrors.password = "Password must include uppercase, lowercase, and a number";
+      newErrors.password = "Password is required.";
+    } else {
+      if (password.length < 8) {
+        newErrors.password = "Password must be at least 8 characters.";
+      } else if (password.length > 72) {
+        newErrors.password = "Password must be 72 characters or fewer.";
+      } else if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password)) {
+        newErrors.password = "Use at least one uppercase letter, one lowercase letter, and one number.";
+      }
     }
 
-    if (password !== confirmPassword) {
-      newErrors.confirmPassword = "Passwords don't match";
+    if (!confirmPassword) {
+      newErrors.confirmPassword = "Please confirm your password.";
+    } else if (password !== confirmPassword) {
+      newErrors.confirmPassword = "Passwords don't match.";
     }
 
     setErrors(newErrors);
@@ -55,9 +88,8 @@ export function AuthForm() {
 
   function validateSignin(): boolean {
     const newErrors: Record<string, string> = {};
-    if (!email) newErrors.email = "Email is required";
-    else if (!EMAIL_REGEX.test(email)) newErrors.email = "Please enter a valid email";
-    if (!password) newErrors.password = "Password is required";
+    validateEmail(newErrors);
+    if (!password) newErrors.password = "Password is required.";
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   }
@@ -67,30 +99,49 @@ export function AuthForm() {
     setSubmitError(null);
 
     const valid = mode === "signin" ? validateSignin() : validateSignup();
-    if (!valid) return;
+    if (!valid) {
+      toast({
+        title: "Please check the form",
+        description: "Fix the highlighted fields and try again.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     try {
+      const normalizedEmail = email.trim().toLowerCase();
       if (mode === "signin") {
-        await signIn(email, password);
+        await signIn(normalizedEmail, password);
         toast({
           title: "Welcome back!",
           description: "You're now signed in.",
         });
       } else {
-        await signUp(email, password);
-        if (!justSignedUp) {
+        await signUp(normalizedEmail, password);
+        if (useStore.getState().justSignedUp) {
+          toast({
+            title: "Check your email",
+            description: `We sent a confirmation link to ${normalizedEmail}.`,
+          });
+        } else {
           toast({
             title: "Account created!",
             description: "Welcome to Tulkit.",
           });
         }
       }
-    } catch (e) {
-      setSubmitError(e instanceof Error ? e.message : "Something went wrong");
+    } catch (error) {
+      const message = friendlyAuthError(error, mode);
+      setSubmitError(message);
+      toast({
+        title: mode === "signin" ? "Sign-in failed" : "Sign-up failed",
+        description: message,
+        variant: "destructive",
+      });
     }
   }
 
-  // If user just signed up and email confirmation is required
+  // If user just signed up and email confirmation is required.
   if (justSignedUp) {
     return (
       <div
@@ -168,7 +219,6 @@ export function AuthForm() {
       }}
     >
       <div className="w-full max-w-md space-y-6">
-        {/* Logo + branding */}
         <div className="text-center space-y-3">
           <div
             className="inline-flex items-center justify-center rounded-xl px-4 py-3"
@@ -178,9 +228,7 @@ export function AuthForm() {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-neutral-900">Tulkit</h1>
-            <p className="text-sm text-neutral-600">
-              Invoices & Quotes made easy
-            </p>
+            <p className="text-sm text-neutral-600">Invoices &amp; Quotes made easy</p>
           </div>
         </div>
 
@@ -199,7 +247,10 @@ export function AuthForm() {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4" noValidate>
               {submitError && (
-                <div className="rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-800 flex gap-2 items-start">
+                <div
+                  role="alert"
+                  className="rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-800 flex gap-2 items-start"
+                >
                   <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
                   <span>{submitError}</span>
                 </div>
@@ -214,17 +265,19 @@ export function AuthForm() {
                     type="email"
                     placeholder="you@example.com"
                     value={email}
-                    onChange={(e) => {
-                      setEmail(e.target.value);
+                    onChange={(event) => {
+                      setEmail(event.target.value);
                       if (errors.email) setErrors({ ...errors, email: "" });
                     }}
                     className={`pl-9 ${errors.email ? "border-red-400" : ""}`}
                     autoComplete="email"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    aria-invalid={Boolean(errors.email)}
+                    aria-describedby={errors.email ? "email-error" : undefined}
                   />
                 </div>
-                {errors.email && (
-                  <p className="text-xs text-red-600">{errors.email}</p>
-                )}
+                {errors.email && <p id="email-error" className="text-xs text-red-600">{errors.email}</p>}
               </div>
 
               <div className="space-y-1.5">
@@ -236,27 +289,28 @@ export function AuthForm() {
                     type={showPassword ? "text" : "password"}
                     placeholder="••••••••"
                     value={password}
-                    onChange={(e) => {
-                      setPassword(e.target.value);
+                    onChange={(event) => {
+                      setPassword(event.target.value);
                       if (errors.password) setErrors({ ...errors, password: "" });
                     }}
                     className={`pl-9 pr-9 ${errors.password ? "border-red-400" : ""}`}
                     autoComplete={mode === "signin" ? "current-password" : "new-password"}
+                    aria-invalid={Boolean(errors.password)}
+                    aria-describedby={errors.password ? "password-error" : mode === "signup" ? "password-hint" : undefined}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
-                {errors.password && (
-                  <p className="text-xs text-red-600">{errors.password}</p>
-                )}
+                {errors.password && <p id="password-error" className="text-xs text-red-600">{errors.password}</p>}
                 {mode === "signup" && !errors.password && (
-                  <p className="text-xs text-muted-foreground">
-                    Min 8 characters, with uppercase, lowercase, and a number
+                  <p id="password-hint" className="text-xs text-muted-foreground">
+                    At least 8 characters, including uppercase, lowercase, and a number.
                   </p>
                 )}
               </div>
@@ -271,16 +325,18 @@ export function AuthForm() {
                       type={showPassword ? "text" : "password"}
                       placeholder="••••••••"
                       value={confirmPassword}
-                      onChange={(e) => {
-                        setConfirmPassword(e.target.value);
+                      onChange={(event) => {
+                        setConfirmPassword(event.target.value);
                         if (errors.confirmPassword) setErrors({ ...errors, confirmPassword: "" });
                       }}
                       className={`pl-9 ${errors.confirmPassword ? "border-red-400" : ""}`}
                       autoComplete="new-password"
+                      aria-invalid={Boolean(errors.confirmPassword)}
+                      aria-describedby={errors.confirmPassword ? "confirm-password-error" : undefined}
                     />
                   </div>
                   {errors.confirmPassword && (
-                    <p className="text-xs text-red-600">{errors.confirmPassword}</p>
+                    <p id="confirm-password-error" className="text-xs text-red-600">{errors.confirmPassword}</p>
                   )}
                 </div>
               )}
@@ -290,9 +346,7 @@ export function AuthForm() {
                 disabled={authLoading}
                 className="w-full bg-[#0E7C9C] hover:bg-[#0A6582] text-white"
               >
-                {authLoading ? (
-                  "Please wait..."
-                ) : (
+                {authLoading ? "Please wait..." : (
                   <>
                     {mode === "signin" ? "Sign in" : "Create account"}
                     <ArrowRight className="ml-2 h-4 w-4" />
@@ -306,6 +360,7 @@ export function AuthForm() {
                 <>
                   Don&apos;t have an account?{" "}
                   <button
+                    type="button"
                     onClick={() => {
                       setMode("signup");
                       setErrors({});
@@ -320,6 +375,7 @@ export function AuthForm() {
                 <>
                   Already have an account?{" "}
                   <button
+                    type="button"
                     onClick={() => {
                       setMode("signin");
                       setErrors({});
