@@ -117,7 +117,7 @@ export default function Home() {
     <div className="min-h-screen flex flex-col bg-muted/20">
       {/* Header */}
       <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur">
-        <div className="max-w-none mx-auto px-4 h-14 flex items-center justify-between gap-4">
+        <div className="max-w-none w-full mx-auto px-4 h-14 flex items-center justify-between gap-4">
           <button
             onClick={() => {
               setEditingDocId(null);
@@ -189,7 +189,7 @@ export default function Home() {
       </header>
 
       {/* Main content */}
-      <main className="flex-1 max-w-none mx-auto px-4 py-6 space-y-4">
+      <main className="flex-1 max-w-none w-full mx-auto px-4 py-6 space-y-4">
         {/* Subscription banner (not on admin page, not when editing) */}
         {!editingDocId && view !== "admin" && (
           <SubscriptionBanner onUpgradeClick={() => setUpgradeOpen(true)} />
@@ -210,7 +210,7 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="border-t bg-background">
-        <div className="max-w-none mx-auto px-4 py-4 text-center space-y-1">
+        <div className="max-w-none w-full mx-auto px-4 py-4 text-center space-y-1">
           <div className="text-xs text-muted-foreground">
             Tulkit · Invoices &amp; Quotes made easy
           </div>
