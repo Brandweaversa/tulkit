@@ -209,10 +209,9 @@ export default function Home() {
             >
               <img src="/tulkit.png" alt="Tulkit" className="h-7 w-auto object-contain" />
             </span>
-            <div className="min-w-0 hidden sm:block">
-              <div className="font-bold text-sm truncate">Tulkit</div>
-              <div className="text-[10px] text-muted-foreground">Invoices & Quotes</div>
-            </div>
+<div className="min-w-0 hidden sm:block">
+  <div className="font-bold text-sm truncate">Invoices & Quotes made easy</div>
+</div>
           </button>
 
           {!editingDocId && (
