@@ -1,5 +1,5 @@
 import type { BusinessProfile, InvoiceDocument } from "./types";
-import { computeTotals, formatCurrency, formatDate, phoneForWa } from "./format";
+import { computeTotals, formatCurrency, formatDate, phoneForWa, todayISO } from "./format";
 
 interface ShareContext {
   business: BusinessProfile;
@@ -58,14 +58,18 @@ export function buildShareSubject({ business, doc }: ShareContext): string {
 // WhatsApp deep link using wa.me — opens WhatsApp with the message pre-filled.
 // If the client has no phone number, returns the web.whatsapp.com send URL
 // without a recipient (the user picks the contact in WhatsApp).
-export function whatsappShareUrl({ business, doc }: ShareContext): string {
-  const message = encodeURIComponent(buildShareMessage({ business, doc }));
-  const phone = phoneForWa(doc.clientSnapshot.phone ?? "");
-  if (phone) {
-    return `https://wa.me/${phone}?text=${message}`;
+function waUrl(phone: string, message: string): string {
+  const text = encodeURIComponent(message);
+  const p = phoneForWa(phone);
+  if (p) {
+    return `https://wa.me/${p}?text=${text}`;
   }
   // No phone — let the user pick the chat
-  return `https://wa.me/?text=${message}`;
+  return `https://wa.me/?text=${text}`;
+}
+
+export function whatsappShareUrl({ business, doc }: ShareContext): string {
+  return waUrl(doc.clientSnapshot.phone ?? "", buildShareMessage({ business, doc }));
 }
 
 // Mailto URL — works without any backend or API key. Opens the user's email
@@ -76,6 +80,55 @@ export function emailShareUrl({ business, doc }: ShareContext): string {
   const subject = encodeURIComponent(buildShareSubject({ business, doc }));
   const body = encodeURIComponent(buildShareMessage({ business, doc }));
   const to = doc.clientSnapshot.email || "";
+  return `mailto:${to}?subject=${subject}&body=${body}`;
+}
+
+// ---------------------------------------------------------------------------
+// Reminders — gentle payment nudges for invoices that are out or overdue.
+// Same channels as sharing (WhatsApp / mailto), different message.
+// ---------------------------------------------------------------------------
+
+export function buildReminderMessage({ business, doc }: ShareContext): string {
+  const totals = computeTotals(doc);
+  const clientName = doc.clientSnapshot.company || doc.clientSnapshot.name;
+  const overdue = Boolean(doc.dueDate) && doc.dueDate < todayISO();
+
+  const lines = [
+    `Hi ${clientName},`,
+    "",
+    `Just a friendly reminder about invoice ${doc.number} for ${formatCurrency(
+      totals.total,
+      business.currencySymbol,
+    )}.`,
+    overdue
+      ? `It was due on ${formatDate(doc.dueDate)} — if it's already been paid, please ignore this message.`
+      : `It's due on ${formatDate(doc.dueDate)} — if it's already been paid, please ignore this message.`,
+    "",
+    "Otherwise, could you let me know when I can expect payment?",
+    "",
+    "Thank you for your business!",
+    `- ${business.name}`,
+  ];
+
+  return lines.join("\n");
+}
+
+export function buildReminderSubject({ business, doc }: ShareContext): string {
+  const totals = computeTotals(doc);
+  return `Reminder: Invoice ${doc.number} — ${formatCurrency(
+    totals.total,
+    business.currencySymbol,
+  )}`;
+}
+
+export function whatsappReminderUrl(ctx: ShareContext): string {
+  return waUrl(ctx.doc.clientSnapshot.phone ?? "", buildReminderMessage(ctx));
+}
+
+export function emailReminderUrl(ctx: ShareContext): string {
+  const subject = encodeURIComponent(buildReminderSubject(ctx));
+  const body = encodeURIComponent(buildReminderMessage(ctx));
+  const to = ctx.doc.clientSnapshot.email || "";
   return `mailto:${to}?subject=${subject}&body=${body}`;
 }
 

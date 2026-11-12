@@ -20,6 +20,7 @@ import {
   Save,
   RefreshCw,
   ArrowRight,
+  BellRing,
 } from "lucide-react";
 import { useStore } from "@/lib/store";
 import {
@@ -57,6 +58,7 @@ export function DocumentEditor({ docId, onBack }: Props) {
   const convertQuoteToInvoice = useStore((s) => s.convertQuoteToInvoice);
 
   const [shareOpen, setShareOpen] = useState(false);
+  const [shareMode, setShareMode] = useState<"share" | "reminder">("share");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -85,6 +87,10 @@ export function DocumentEditor({ docId, onBack }: Props) {
   const canShareEmail = can(userCtx, "email_share");
   const canDownloadPdf = can(userCtx, "pdf_download");
   const canConvert = can(userCtx, "convert_quote_to_invoice");
+  // Reminders are for invoices that are actually out the door.
+  const canRemind =
+    isInvoice &&
+    (doc.status === "sent" || doc.status === "viewed" || doc.status === "overdue");
 
   function handleClientChange(clientId: string) {
     const client = clients.find((c) => c.id === clientId);
@@ -214,9 +220,27 @@ export function DocumentEditor({ docId, onBack }: Props) {
             </Button>
           )}
 
-          <Button onClick={() => setShareOpen(true)} className="bg-[#0E7C9C] hover:bg-[#0A6582] text-white">
+          <Button
+            onClick={() => {
+              setShareMode("share");
+              setShareOpen(true);
+            }}
+            className="bg-[#0E7C9C] hover:bg-[#0A6582] text-white"
+          >
             <Share2 className="h-4 w-4 mr-2" /> Share
           </Button>
+
+          {canRemind && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShareMode("reminder");
+                setShareOpen(true);
+              }}
+            >
+              <BellRing className="h-4 w-4 mr-2" /> Remind
+            </Button>
+          )}
 
           <Button
             variant="outline"
@@ -570,6 +594,7 @@ export function DocumentEditor({ docId, onBack }: Props) {
         canWhatsApp={canShareWhatsApp}
         canEmail={canShareEmail}
         canDownloadPdf={canDownloadPdf}
+        initialMode={shareMode}
       />
     </div>
   );
