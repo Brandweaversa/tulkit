@@ -29,6 +29,7 @@ import {
   Loader2,
   Check,
   X,
+  Activity,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { FEATURE_KEYS, FEATURE_LABELS, FREE_TIER_LIMITS } from "@/lib/types";
@@ -98,6 +99,14 @@ interface Stats {
   totalClients: number;
   recentActivations: number;
   estimatedMonthlyRevenue: number;
+  activeUsers7d: number;
+  activeUsers30d: number;
+  trialConversionRate: number | null;
+  trialConverted: number;
+  trialTotal: number;
+  expiredLast30d: number;
+  signupsPerWeek: number[];
+  documentsPerWeek: number[];
 }
 
 interface AuditEntry {
@@ -249,6 +258,69 @@ export function AdminDashboard() {
             tone="emerald"
           />
         </div>
+      )}
+
+      {/* Engagement + conversion stats */}
+      {stats && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <StatCard
+            icon={<Activity className="h-4 w-4" />}
+            label="Active users (7d)"
+            value={String(stats.activeUsers7d)}
+            sub="created a document"
+          />
+          <StatCard
+            icon={<UserCheck className="h-4 w-4" />}
+            label="Active users (30d)"
+            value={String(stats.activeUsers30d)}
+            sub="created a document"
+          />
+          <StatCard
+            icon={<Sparkles className="h-4 w-4" />}
+            label="Trial → Pro conversion"
+            value={stats.trialConversionRate !== null ? `${stats.trialConversionRate}%` : "—"}
+            sub={
+              stats.trialTotal > 0
+                ? `${stats.trialConverted} of ${stats.trialTotal} trials`
+                : "No trials yet"
+            }
+            tone="emerald"
+          />
+          <StatCard
+            icon={<Clock className="h-4 w-4" />}
+            label="Expired (last 30d)"
+            value={String(stats.expiredLast30d)}
+            sub="approx. churn"
+            tone="amber"
+          />
+        </div>
+      )}
+
+      {/* 8-week trends */}
+      {stats && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Last 8 weeks</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <div className="text-xs text-muted-foreground mb-1.5">
+                Signups — {stats.signupsPerWeek.reduce((a, b) => a + b, 0)} total
+              </div>
+              <Sparkline values={stats.signupsPerWeek} className="bg-[#0E7C9C]/70" />
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground mb-1.5">
+                Documents created — {stats.documentsPerWeek.reduce((a, b) => a + b, 0)} total
+              </div>
+              <Sparkline values={stats.documentsPerWeek} className="bg-sky-500/60" />
+            </div>
+            <div className="flex justify-between text-[10px] text-muted-foreground">
+              <span>8 wk ago</span>
+              <span>now</span>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Users table */}
@@ -682,6 +754,22 @@ function UserDetailPanel({ userId }: { userId: string }) {
         <CompletenessChip label="Banking" ok={profile.hasBanking} />
         <CompletenessChip label="Phone" ok={profile.hasPhone} />
       </div>
+    </div>
+  );
+}
+
+function Sparkline({ values, className }: { values: number[]; className?: string }) {
+  const max = Math.max(...values, 1);
+  return (
+    <div className="flex items-end gap-1 h-12">
+      {values.map((v, i) => (
+        <div
+          key={i}
+          title={`${v} in week ${i + 1}`}
+          className={`flex-1 rounded-sm min-h-[2px] ${className ?? "bg-[#0E7C9C]/70"}`}
+          style={{ height: `${Math.max((v / max) * 100, 4)}%` }}
+        />
+      ))}
     </div>
   );
 }
