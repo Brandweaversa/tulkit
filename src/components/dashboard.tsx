@@ -25,8 +25,10 @@ import {
 import { useStore } from "@/lib/store";
 import {
   computeTotals,
+  effectiveStatus,
   formatCurrency,
   formatDate,
+  isQuoteExpired,
   statusColor,
   statusLabel,
 } from "@/lib/format";
@@ -47,11 +49,14 @@ export function Dashboard({ onOpenDoc, onNewDoc }: Props) {
 
   const stats = useMemo(() => {
     const invoices = documents.filter((d) => d.type === "invoice");
+    // Use the derived status: sent/viewed invoices past their due date are
+    // overdue regardless of what the stored status says.
+    const effStatus = (d: (typeof documents)[number]) => effectiveStatus(d);
     const paid = invoices.filter((d) => d.status === "paid");
-    const outstanding = invoices.filter(
-      (d) => d.status === "sent" || d.status === "viewed" || d.status === "overdue",
+    const outstanding = invoices.filter((d) =>
+      ["sent", "viewed", "overdue"].includes(effStatus(d)),
     );
-    const overdue = invoices.filter((d) => d.status === "overdue");
+    const overdue = invoices.filter((d) => effStatus(d) === "overdue");
 
     const totalPaid = paid.reduce(
       (sum, d) => sum + computeTotals(d).total,
@@ -78,7 +83,11 @@ export function Dashboard({ onOpenDoc, onNewDoc }: Props) {
   const filtered = useMemo(() => {
     return documents
       .filter((d) => (typeFilter === "all" ? true : d.type === typeFilter))
-      .filter((d) => (statusFilter === "all" ? true : d.status === statusFilter))
+      .filter((d) => {
+        if (statusFilter === "all") return true;
+        if (statusFilter === "expired") return isQuoteExpired(d);
+        return effectiveStatus(d) === statusFilter;
+      })
       .filter((d) => {
         if (!search.trim()) return true;
         const q = search.toLowerCase();
@@ -177,6 +186,7 @@ export function Dashboard({ onOpenDoc, onNewDoc }: Props) {
                   <SelectItem value="viewed">Viewed</SelectItem>
                   <SelectItem value="paid">Paid</SelectItem>
                   <SelectItem value="overdue">Overdue</SelectItem>
+                  <SelectItem value="expired">Expired quotes</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -213,11 +223,15 @@ export function Dashboard({ onOpenDoc, onNewDoc }: Props) {
             <div className="divide-y">
               {filtered.map((d) => {
                 const totals = computeTotals(d);
+                const eff = effectiveStatus(d);
+                const expired = isQuoteExpired(d);
                 return (
                   <button
                     key={d.id}
                     onClick={() => onOpenDoc(d.id)}
-                    className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/40 transition-colors text-left"
+                    className={`w-full flex items-center justify-between px-4 py-3 hover:bg-muted/40 transition-colors text-left ${
+                      expired ? "opacity-60" : ""
+                    }`}
                   >
                     <div className="flex items-center gap-3 min-w-0 flex-1">
                       <div
@@ -236,9 +250,18 @@ export function Dashboard({ onOpenDoc, onNewDoc }: Props) {
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-medium text-sm">{d.number}</span>
-                          <Badge className={statusColor(d.status)} variant="secondary">
-                            {statusLabel(d.status)}
-                          </Badge>
+                          {expired ? (
+                            <Badge
+                              variant="outline"
+                              className="border-red-300 text-red-700 dark:border-red-800 dark:text-red-400"
+                            >
+                              Expired
+                            </Badge>
+                          ) : (
+                            <Badge className={statusColor(eff)} variant="secondary">
+                              {statusLabel(eff)}
+                            </Badge>
+                          )}
                         </div>
                         <div className="text-xs text-muted-foreground truncate">
                           {d.clientSnapshot.company || d.clientSnapshot.name}
@@ -251,11 +274,13 @@ export function Dashboard({ onOpenDoc, onNewDoc }: Props) {
                       <div className="font-semibold text-sm">
                         {formatCurrency(totals.total, business.currencySymbol)}
                       </div>
-                      {d.type === "invoice" && (
-                        <div className="text-xs text-muted-foreground">
-                          Due {formatDate(d.dueDate)}
-                        </div>
-                      )}
+                      <div className="text-xs text-muted-foreground">
+                        {d.type === "invoice"
+                          ? `Due ${formatDate(d.dueDate)}`
+                          : expired
+                            ? `Expired ${formatDate(d.dueDate)}`
+                            : `Valid until ${formatDate(d.dueDate)}`}
+                      </div>
                     </div>
                   </button>
                 );

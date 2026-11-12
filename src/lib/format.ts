@@ -30,6 +30,43 @@ export function addDaysISO(iso: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+// ---------------------------------------------------------------------------
+// Derived status helpers
+// The database stores the user-chosen status, but time moves on: a sent
+// invoice whose due date has passed IS overdue, and a quote past its
+// valid-until date IS expired. These helpers derive the true status so the
+// UI and stats never depend on the user manually flipping statuses.
+// ---------------------------------------------------------------------------
+
+// True status of a document. Sent/viewed invoices past their due date become
+// "overdue"; everything else keeps its stored status.
+export function effectiveStatus(
+  doc: Pick<InvoiceDocument, "type" | "status" | "dueDate">,
+): InvoiceDocument["status"] {
+  if (
+    doc.type === "invoice" &&
+    (doc.status === "sent" || doc.status === "viewed") &&
+    doc.dueDate &&
+    doc.dueDate < todayISO()
+  ) {
+    return "overdue";
+  }
+  return doc.status;
+}
+
+// A quote past its valid-until date (unless already converted). Display-only:
+// the stored status is never rewritten, so bumping the date revives the quote.
+export function isQuoteExpired(
+  doc: Pick<InvoiceDocument, "type" | "status" | "dueDate">,
+): boolean {
+  return (
+    doc.type === "quote" &&
+    doc.status !== "converted" &&
+    Boolean(doc.dueDate) &&
+    doc.dueDate < todayISO()
+  );
+}
+
 // Compute the line subtotal after the per-line discount.
 export function lineSubtotal(item: LineItem): number {
   const gross = item.quantity * item.unitPrice;

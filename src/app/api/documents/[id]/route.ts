@@ -22,6 +22,7 @@ export async function GET(_request: Request, { params }: Params) {
   if (!doc) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
+  // Raw stored status — overdue/expired are derived on the client from dates.
   return NextResponse.json(serializeDoc(doc));
 }
 
@@ -59,8 +60,9 @@ export async function PUT(request: Request, { params }: Params) {
   // Handle status timestamps — clear when reverting
   if (body.status === "sent" && !existing.sentAt) {
     data.sentAt = new Date().toISOString();
-  } else if (body.status && body.status !== "sent" && body.status !== "paid" && body.status !== "viewed") {
-    // Clear sentAt when going back to draft/overdue
+  } else if (body.status === "draft") {
+    // Only going back to draft clears sentAt. Overdue and converted invoices
+    // WERE sent — losing sentAt would corrupt "days to pay" reporting.
     data.sentAt = null;
   }
   if (body.status === "paid") {

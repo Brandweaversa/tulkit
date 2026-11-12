@@ -19,6 +19,9 @@ export async function GET() {
     include: { items: true },
     orderBy: { createdAt: "desc" },
   });
+  // NOTE: status is returned as stored. Overdue/expired are DERIVED on the
+  // client from the due date (lib/format effectiveStatus) so that autosaves
+  // echo the raw status back and a bumped due date revives an old invoice.
   return NextResponse.json(documents.map(serializeDoc));
 }
 

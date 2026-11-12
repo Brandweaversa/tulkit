@@ -506,8 +506,8 @@ export const useStore = create<StoreState>((set, get) => ({
               sentAt:
                 status === "sent" && !d.sentAt
                   ? new Date().toISOString()
-                  : status === "draft" || status === "overdue"
-                    ? undefined
+                  : status === "draft"
+                    ? undefined // only draft clears sentAt; overdue/converted WERE sent
                     : d.sentAt,
               paidAt:
                 status === "paid"

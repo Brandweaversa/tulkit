@@ -23,6 +23,7 @@ import {
 import { useStore } from "@/lib/store";
 import {
   computeTotals,
+  effectiveStatus,
   formatCurrency,
   statusColor,
   statusLabel,
@@ -178,8 +179,11 @@ export function DocumentEditor({ docId, onBack }: Props) {
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-xl font-bold truncate">{doc.number}</h1>
-              <Badge className={statusColor(doc.status)} variant="secondary">
-                {statusLabel(doc.status)}
+              <Badge
+                className={statusColor(effectiveStatus(doc))}
+                variant="secondary"
+              >
+                {statusLabel(effectiveStatus(doc))}
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground capitalize">
