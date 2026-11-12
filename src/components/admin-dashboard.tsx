@@ -15,7 +15,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Users, Crown, Clock, TrendingUp, UserCheck, UserX } from "lucide-react";
+import { Users, Crown, Clock, TrendingUp, UserCheck, UserX, Trash2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { FEATURE_KEYS, FEATURE_LABELS } from "@/lib/types";
 import type { FeatureKey } from "@/lib/types";
@@ -114,6 +114,32 @@ export function AdminDashboard() {
     }
   }
 
+  async function handleDeleteUser(user: AdminUser) {
+    const confirmed = confirm(
+      `Delete ${user.email}?\n\nThis permanently removes:\n- Their account\n- All their clients\n- All their invoices & quotes\n\nThis cannot be undone.`,
+    );
+    if (!confirmed) return;
+
+    try {
+      const res = await fetch(`/api/admin/users/${user.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to delete user");
+      }
+      toast({
+        title: "User deleted",
+        description: `${user.email} and all their data have been removed.`,
+      });
+      loadData();
+    } catch (e) {
+      toast({
+        title: "Delete failed",
+        description: e instanceof Error ? e.message : "Unknown error",
+        variant: "destructive",
+      });
+    }
+  }
+
   if (loading) {
     return <div className="text-center py-8 text-muted-foreground">Loading admin dashboard...</div>;
   }
@@ -182,6 +208,15 @@ export function AdminDashboard() {
                             Revoke
                           </Button>
                         )}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-destructive"
+                          onClick={() => handleDeleteUser(u)}
+                          title="Delete user permanently"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
                       </>
                     )}
                   </div>
