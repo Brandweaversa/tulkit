@@ -204,6 +204,8 @@ export default function Home() {
             onNewDoc={handleNewDoc}
             clientFilter={clientFilter}
             onClearClientFilter={() => setClientFilter(null)}
+            onGoToClients={() => setView("clients")}
+            onGoToSettings={() => setView("settings")}
           />
         ) : view === "clients" ? (
           <ClientsPanel

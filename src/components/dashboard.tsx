@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -33,7 +33,11 @@ import {
   statusLabel,
 } from "@/lib/format";
 import { useState } from "react";
-import type { DocumentType } from "@/lib/types";
+import type { DocumentType, InvoiceDocument } from "@/lib/types";
+import {
+  OnboardingChecklist,
+  type OnboardingStep,
+} from "@/components/onboarding-checklist";
 
 interface Props {
   onOpenDoc: (id: string) => void;
@@ -41,9 +45,18 @@ interface Props {
   /** Set by the Clients panel "Documents" button — filters the list to one client. */
   clientFilter?: string | null;
   onClearClientFilter?: () => void;
+  onGoToClients?: () => void;
+  onGoToSettings?: () => void;
 }
 
-export function Dashboard({ onOpenDoc, onNewDoc, clientFilter, onClearClientFilter }: Props) {
+export function Dashboard({
+  onOpenDoc,
+  onNewDoc,
+  clientFilter,
+  onClearClientFilter,
+  onGoToClients,
+  onGoToSettings,
+}: Props) {
   const business = useStore((s) => s.business);
   const clients = useStore((s) => s.clients);
   const documents = useStore((s) => s.documents);
@@ -112,8 +125,108 @@ export function Dashboard({ onOpenDoc, onNewDoc, clientFilter, onClearClientFilt
     ? clients.find((c) => c.id === clientFilter)
     : null;
 
+  // ---- Revenue insights (all derived client-side from the loaded docs) ----
+  const insights = useMemo(() => {
+    const now = new Date();
+    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).getTime();
+    const paidInvoices = documents.filter(
+      (d) => d.type === "invoice" && d.status === "paid" && d.paidAt,
+    );
+    const sum = (arr: InvoiceDocument[]) =>
+      arr.reduce((s, d) => s + computeTotals(d).total, 0);
+    const inRange = (iso: string, from: number, to?: number) => {
+      const t = new Date(iso).getTime();
+      return t >= from && (to === undefined || t < to);
+    };
+
+    const thisMonth = sum(paidInvoices.filter((d) => inRange(d.paidAt!, thisMonthStart)));
+    const lastMonth = sum(
+      paidInvoices.filter((d) => inRange(d.paidAt!, lastMonthStart, thisMonthStart)),
+    );
+    const delta =
+      lastMonth > 0 ? Math.round(((thisMonth - lastMonth) / lastMonth) * 100) : null;
+
+    // Days to pay: paidAt minus the moment it went out (sentAt, else creation).
+    const payDays = paidInvoices
+      .map((d) => {
+        const start = d.sentAt ?? d.createdAt;
+        return (new Date(d.paidAt!).getTime() - new Date(start).getTime()) / 86_400_000;
+      })
+      .filter((x) => Number.isFinite(x) && x >= 0);
+    const avgDays = payDays.length
+      ? Math.round(payDays.reduce((a, b) => a + b, 0) / payDays.length)
+      : null;
+
+    const byClient = new Map<string, number>();
+    for (const d of paidInvoices) {
+      byClient.set(d.clientId, (byClient.get(d.clientId) ?? 0) + computeTotals(d).total);
+    }
+    const top = [...byClient.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([cid, total]) => {
+        const c = clients.find((cl) => cl.id === cid);
+        return { id: cid, name: c?.company || c?.name || "Client", total };
+      });
+
+    return { thisMonth, lastMonth, delta, avgDays, payCount: payDays.length, top };
+  }, [documents, clients]);
+
+  // ---- Onboarding checklist (hidden once dismissed or completed) ----
+  const [showOnboarding, setShowOnboarding] = useState<boolean | null>(null);
+  useEffect(() => {
+    setShowOnboarding(localStorage.getItem("tulkit-onboarding-dismissed") !== "1");
+  }, []);
+
+  function dismissOnboarding() {
+    localStorage.setItem("tulkit-onboarding-dismissed", "1");
+    setShowOnboarding(false);
+  }
+
+  const onboardingSteps: OnboardingStep[] = [
+    {
+      key: "profile",
+      label: "Set up your business details",
+      hint: "Name, logo, banking — they appear on every document you send.",
+      done: Boolean(business.name) && business.name !== "Your Business Name",
+      action: onGoToSettings,
+      actionLabel: "Open settings",
+    },
+    {
+      key: "client",
+      label: "Add your first client",
+      done: clients.length > 0,
+      action: onGoToClients,
+      actionLabel: "Add client",
+    },
+    {
+      key: "invoice",
+      label: "Create your first invoice",
+      done: documents.length > 0,
+      action: () => onNewDoc("invoice"),
+      actionLabel: "New invoice",
+    },
+    {
+      key: "send",
+      label: "Send an invoice to a client",
+      hint: "Share it via WhatsApp or email from the editor.",
+      done: documents.some((d) => d.type === "invoice" && d.status !== "draft"),
+      action: () => {
+        const target = documents.find((d) => d.type === "invoice") ?? documents[0];
+        if (target) onOpenDoc(target.id);
+      },
+      actionLabel: "Open invoice",
+    },
+  ];
+
   return (
     <div className="space-y-6">
+      {/* Onboarding checklist (first-run) */}
+      {showOnboarding === true && (
+        <OnboardingChecklist steps={onboardingSteps} onDismiss={dismissOnboarding} />
+      )}
+
       {/* Client filter chip (set from the Clients panel) */}
       {filteredClient && (
         <div className="flex items-center justify-between gap-3 rounded-md border bg-muted/30 px-3 py-2 text-sm">
@@ -157,6 +270,58 @@ export function Dashboard({ onOpenDoc, onNewDoc, clientFilter, onClearClientFilt
           sub={`${stats.invoiceCount} invoices · ${stats.quoteCount} quotes`}
         />
       </div>
+
+      {/* Revenue insights */}
+      {documents.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <TrendingUp className="h-4 w-4" /> Revenue insights
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="grid sm:grid-cols-3 gap-4">
+            <div>
+              <div className="text-xs text-muted-foreground">Paid this month</div>
+              <div className="text-lg font-bold mt-0.5">
+                {formatCurrency(insights.thisMonth, business.currencySymbol)}
+              </div>
+              <div className="text-xs text-muted-foreground mt-0.5">
+                {insights.delta === null
+                  ? `Last month: ${formatCurrency(insights.lastMonth, business.currencySymbol)}`
+                  : `${insights.delta >= 0 ? "+" : ""}${insights.delta}% vs last month (${formatCurrency(insights.lastMonth, business.currencySymbol)})`}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground">Average days to pay</div>
+              <div className="text-lg font-bold mt-0.5">
+                {insights.avgDays === null ? "—" : `${insights.avgDays} days`}
+              </div>
+              <div className="text-xs text-muted-foreground mt-0.5">
+                {insights.payCount === 0
+                  ? "No paid invoices yet"
+                  : `Across ${insights.payCount} paid invoice${insights.payCount === 1 ? "" : "s"}`}
+              </div>
+            </div>
+            <div className="min-w-0">
+              <div className="text-xs text-muted-foreground">Top clients (paid)</div>
+              {insights.top.length === 0 ? (
+                <div className="text-lg font-bold mt-0.5">—</div>
+              ) : (
+                <div className="mt-1 space-y-1">
+                  {insights.top.map((t) => (
+                    <div key={t.id} className="flex items-center justify-between gap-2 text-xs">
+                      <span className="truncate text-muted-foreground">{t.name}</span>
+                      <span className="font-semibold shrink-0">
+                        {formatCurrency(t.total, business.currencySymbol)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Quick create */}
       <div className="grid sm:grid-cols-2 gap-3">
