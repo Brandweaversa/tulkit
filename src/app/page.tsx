@@ -34,6 +34,7 @@ export default function Home() {
   const [view, setView] = useState<View>("dashboard");
   const [editingDocId, setEditingDocId] = useState<string | null>(null);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [clientFilter, setClientFilter] = useState<string | null>(null);
 
   const authUser = useStore((s) => s.authUser);
   const authLoading = useStore((s) => s.authLoading);
@@ -198,9 +199,19 @@ export default function Home() {
         {editingDocId ? (
           <DocumentEditor docId={editingDocId} onBack={handleBack} />
         ) : view === "dashboard" ? (
-          <Dashboard onOpenDoc={handleOpenDoc} onNewDoc={handleNewDoc} />
+          <Dashboard
+            onOpenDoc={handleOpenDoc}
+            onNewDoc={handleNewDoc}
+            clientFilter={clientFilter}
+            onClearClientFilter={() => setClientFilter(null)}
+          />
         ) : view === "clients" ? (
-          <ClientsPanel />
+          <ClientsPanel
+            onViewDocs={(clientId) => {
+              setClientFilter(clientId);
+              setView("dashboard");
+            }}
+          />
         ) : view === "admin" && isAdmin ? (
           <AdminDashboard />
         ) : (

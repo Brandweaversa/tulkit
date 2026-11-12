@@ -38,10 +38,14 @@ import type { DocumentType } from "@/lib/types";
 interface Props {
   onOpenDoc: (id: string) => void;
   onNewDoc: (type: DocumentType) => void;
+  /** Set by the Clients panel "Documents" button — filters the list to one client. */
+  clientFilter?: string | null;
+  onClearClientFilter?: () => void;
 }
 
-export function Dashboard({ onOpenDoc, onNewDoc }: Props) {
+export function Dashboard({ onOpenDoc, onNewDoc, clientFilter, onClearClientFilter }: Props) {
   const business = useStore((s) => s.business);
+  const clients = useStore((s) => s.clients);
   const documents = useStore((s) => s.documents);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<"all" | DocumentType>("all");
@@ -82,6 +86,7 @@ export function Dashboard({ onOpenDoc, onNewDoc }: Props) {
 
   const filtered = useMemo(() => {
     return documents
+      .filter((d) => (clientFilter ? d.clientId === clientFilter : true))
       .filter((d) => (typeFilter === "all" ? true : d.type === typeFilter))
       .filter((d) => {
         if (statusFilter === "all") return true;
@@ -101,10 +106,29 @@ export function Dashboard({ onOpenDoc, onNewDoc }: Props) {
         (a, b) =>
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
       );
-  }, [documents, search, typeFilter, statusFilter]);
+  }, [documents, search, typeFilter, statusFilter, clientFilter]);
+
+  const filteredClient = clientFilter
+    ? clients.find((c) => c.id === clientFilter)
+    : null;
 
   return (
     <div className="space-y-6">
+      {/* Client filter chip (set from the Clients panel) */}
+      {filteredClient && (
+        <div className="flex items-center justify-between gap-3 rounded-md border bg-muted/30 px-3 py-2 text-sm">
+          <span className="min-w-0 truncate">
+            Showing documents for{" "}
+            <span className="font-semibold">
+              {filteredClient.company || filteredClient.name}
+            </span>
+          </span>
+          <Button variant="ghost" size="sm" className="shrink-0" onClick={onClearClientFilter}>
+            Show all
+          </Button>
+        </div>
+      )}
+
       {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatCard

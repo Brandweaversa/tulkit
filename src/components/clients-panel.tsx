@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,10 +14,11 @@ import {
   DialogFooter,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2, User } from "lucide-react";
+import { Plus, Pencil, Trash2, User, Search, FileText, ArrowRight } from "lucide-react";
 import { v4 as uuid } from "uuid";
 import { useStore } from "@/lib/store";
 import type { Client } from "@/lib/types";
+import { computeTotals, effectiveStatus, formatCurrency, formatDate } from "@/lib/format";
 import { toast } from "@/hooks/use-toast";
 
 const EMPTY_CLIENT: Client = {
@@ -30,13 +31,60 @@ const EMPTY_CLIENT: Client = {
   vatNumber: "",
 };
 
-export function ClientsPanel() {
+interface Props {
+  /** Jump to the dashboard filtered on this client's documents. */
+  onViewDocs?: (clientId: string) => void;
+}
+
+export function ClientsPanel({ onViewDocs }: Props) {
   const clients = useStore((s) => s.clients);
+  const documents = useStore((s) => s.documents);
+  const business = useStore((s) => s.business);
   const upsertClient = useStore((s) => s.upsertClient);
   const deleteClient = useStore((s) => s.deleteClient);
   const [editing, setEditing] = useState<Client | null>(null);
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState("");
+
+  // Per-client money facts, computed once from the documents in the store.
+  const stats = useMemo(() => {
+    const map = new Map<
+      string,
+      { docCount: number; invoiced: number; outstanding: number; lastDoc: string | null }
+    >();
+    for (const c of clients) {
+      map.set(c.id, { docCount: 0, invoiced: 0, outstanding: 0, lastDoc: null });
+    }
+    for (const d of documents) {
+      const entry = map.get(d.clientId);
+      if (!entry) continue;
+      entry.docCount += 1;
+      const total = computeTotals(d).total;
+      if (d.type === "invoice" && d.status !== "draft") {
+        entry.invoiced += total;
+        if (["sent", "viewed", "overdue"].includes(effectiveStatus(d))) {
+          entry.outstanding += total;
+        }
+      }
+      if (!entry.lastDoc || d.createdAt > entry.lastDoc) {
+        entry.lastDoc = d.createdAt;
+      }
+    }
+    return map;
+  }, [clients, documents]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return clients;
+    return clients.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        (c.company ?? "").toLowerCase().includes(q) ||
+        (c.email ?? "").toLowerCase().includes(q) ||
+        (c.phone ?? "").toLowerCase().includes(q),
+    );
+  }, [clients, search]);
 
   function openNew() {
     setEditing({ ...EMPTY_CLIENT, id: uuid() });
@@ -97,6 +145,18 @@ export function ClientsPanel() {
         </Button>
       </div>
 
+      {clients.length > 0 && (
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search clients by name, company, email..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+      )}
+
       {clients.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
@@ -107,11 +167,22 @@ export function ClientsPanel() {
             </Button>
           </CardContent>
         </Card>
+      ) : filtered.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <Search className="h-10 w-10 mx-auto text-muted-foreground/40" />
+            <p className="mt-3 text-sm text-muted-foreground">
+              No clients match “{search}”.
+            </p>
+          </CardContent>
+        </Card>
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {clients.map((c) => (
-            <Card key={c.id}>
-              <CardContent className="p-4 space-y-2">
+          {filtered.map((c) => {
+            const s = stats.get(c.id);
+            return (
+            <Card key={c.id} className="flex flex-col">
+              <CardContent className="p-4 space-y-2 flex-1">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <div className="font-semibold truncate">
@@ -184,9 +255,49 @@ export function ClientsPanel() {
                   {c.phone && <div>{c.phone}</div>}
                   {c.address && <div className="truncate">{c.address}</div>}
                 </div>
+
+                {/* Money summary */}
+                <div className="grid grid-cols-2 gap-2 pt-2 border-t text-xs">
+                  <div>
+                    <div className="text-muted-foreground">Invoiced</div>
+                    <div className="font-semibold">
+                      {formatCurrency(s?.invoiced ?? 0, business.currencySymbol)}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground">Outstanding</div>
+                    <div
+                      className={`font-semibold ${
+                        (s?.outstanding ?? 0) > 0
+                          ? "text-red-600 dark:text-red-400"
+                          : ""
+                      }`}
+                    >
+                      {formatCurrency(s?.outstanding ?? 0, business.currencySymbol)}
+                    </div>
+                  </div>
+                </div>
               </CardContent>
+              <div className="px-4 pb-3 flex items-center justify-between text-xs text-muted-foreground">
+                <span>
+                  {s?.docCount ?? 0} document{(s?.docCount ?? 0) === 1 ? "" : "s"}
+                  {s?.lastDoc ? ` · last ${formatDate(s.lastDoc)}` : ""}
+                </span>
+                {onViewDocs && (s?.docCount ?? 0) > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => onViewDocs(c.id)}
+                  >
+                    <FileText className="h-3.5 w-3.5 mr-1" /> Documents
+                    <ArrowRight className="h-3.5 w-3.5 ml-1" />
+                  </Button>
+                )}
+              </div>
             </Card>
-          ))}
+            );
+          })}
         </div>
       )}
 
