@@ -227,7 +227,7 @@ export function AuthForm() {
             <img src="/tulkit.png" alt="Tulkit" className="h-12 w-auto" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-neutral-900">Tulkit</h1>
+            
             <p className="text-sm text-neutral-600">Invoices &amp; Quotes made easy</p>
           </div>
         </div>
