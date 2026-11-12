@@ -15,9 +15,23 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Users, Crown, Clock, TrendingUp, UserCheck, UserX, Trash2, Sparkles } from "lucide-react";
+import {
+  Users,
+  Crown,
+  Clock,
+  TrendingUp,
+  UserCheck,
+  UserX,
+  Trash2,
+  Sparkles,
+  ChevronDown,
+  ChevronUp,
+  Loader2,
+  Check,
+  X,
+} from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { FEATURE_KEYS, FEATURE_LABELS } from "@/lib/types";
+import { FEATURE_KEYS, FEATURE_LABELS, FREE_TIER_LIMITS } from "@/lib/types";
 import type { FeatureKey } from "@/lib/types";
 
 interface AdminUser {
@@ -32,6 +46,47 @@ interface AdminUser {
   allocatedFeatures: FeatureKey[];
   daysRemaining: number;
   createdAt: string;
+}
+
+// Payload returned by GET /api/admin/users/[id]
+interface UserDetail {
+  user: {
+    id: string;
+    userId: string;
+    name: string;
+    email: string | null;
+    role: string;
+    createdAt: string;
+  };
+  subscription: {
+    status: string;
+    activatedAt: string | null;
+    expiresAt: string | null;
+    trialExpiresAt: string | null;
+    daysRemaining: number;
+    allocatedFeatures: FeatureKey[];
+  };
+  usage: {
+    clientCount: number;
+    totalDocuments: number;
+    invoices: number;
+    quotes: number;
+    byStatus: Record<string, number>;
+    documentsLast30Days: number;
+    lastDocumentAt: string | null;
+    lastSentAt: string | null;
+    lastPaidAt: string | null;
+    estimatedSpendRands: number;
+  };
+  profile: {
+    hasLogo: boolean;
+    hasAddress: boolean;
+    hasVatNumber: boolean;
+    hasBanking: boolean;
+    hasPhone: boolean;
+    completenessScore: number;
+  };
+  flags: string[];
 }
 
 interface Stats {
@@ -50,6 +105,7 @@ export function AdminDashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   const [subscribeUser, setSubscribeUser] = useState<AdminUser | null>(null);
+  const [detailUserId, setDetailUserId] = useState<string | null>(null);
 
   async function loadData() {
     try {
@@ -182,44 +238,59 @@ export function AdminDashboard() {
           ) : (
             <div className="divide-y">
               {users.map((u) => (
-                <div key={u.id} className="px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-medium text-sm truncate">{u.name || u.email || "Unknown"}</span>
-                      {u.role === "admin" && (
-                        <Badge variant="secondary" className="bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300">
-                          <Crown className="h-3 w-3 mr-1" /> Admin
-                        </Badge>
-                      )}
-                      <StatusBadge status={u.subscriptionStatus} days={u.daysRemaining} />
-                    </div>
-                    <div className="text-xs text-muted-foreground truncate">
-                      {u.email} · joined {new Date(u.createdAt).toLocaleDateString()}
-                    </div>
-                  </div>
-                  <div className="flex gap-2 shrink-0">
-                    {u.role !== "admin" && (
-                      <>
-                        <Button size="sm" variant="outline" onClick={() => setSubscribeUser(u)}>
-                          {u.subscriptionStatus === "active" ? "Extend" : "Activate"}
-                        </Button>
-                        {u.subscriptionStatus === "active" && (
-                          <Button size="sm" variant="ghost" className="text-destructive" onClick={() => handleRevoke(u.id)}>
-                            Revoke
-                          </Button>
+                <div key={u.id}>
+                  <div className="px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium text-sm truncate">{u.name || u.email || "Unknown"}</span>
+                        {u.role === "admin" && (
+                          <Badge variant="secondary" className="bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300">
+                            <Crown className="h-3 w-3 mr-1" /> Admin
+                          </Badge>
                         )}
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="text-destructive"
-                          onClick={() => handleDeleteUser(u)}
-                          title="Delete user permanently"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </>
-                    )}
+                        <StatusBadge status={u.subscriptionStatus} days={u.daysRemaining} />
+                      </div>
+                      <div className="text-xs text-muted-foreground truncate">
+                        {u.email} · joined {new Date(u.createdAt).toLocaleDateString()}
+                      </div>
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setDetailUserId((prev) => (prev === u.id ? null : u.id))}
+                        title="View usage details"
+                      >
+                        {detailUserId === u.id ? (
+                          <ChevronUp className="h-3.5 w-3.5" />
+                        ) : (
+                          <ChevronDown className="h-3.5 w-3.5" />
+                        )}
+                      </Button>
+                      {u.role !== "admin" && (
+                        <>
+                          <Button size="sm" variant="outline" onClick={() => setSubscribeUser(u)}>
+                            {u.subscriptionStatus === "active" ? "Extend" : "Activate"}
+                          </Button>
+                          {u.subscriptionStatus === "active" && (
+                            <Button size="sm" variant="ghost" className="text-destructive" onClick={() => handleRevoke(u.id)}>
+                              Revoke
+                            </Button>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-destructive"
+                            onClick={() => handleDeleteUser(u)}
+                            title="Delete user permanently"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
                   </div>
+                  {detailUserId === u.id && <UserDetailPanel userId={u.id} />}
                 </div>
               ))}
             </div>
@@ -394,5 +465,200 @@ function SubscribeDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+const FLAG_META: Record<string, { label: string; tone: "red" | "amber" | "sky" | "neutral" }> = {
+  never_used: { label: "Never created a document", tone: "neutral" },
+  trial_ending_soon: { label: "Trial ending within 7 days", tone: "sky" },
+  expired_with_activity: { label: "Expired but still active", tone: "red" },
+  hitting_client_limit: { label: "At free client limit", tone: "amber" },
+  dormant_30d: { label: "No activity in 30+ days", tone: "amber" },
+};
+
+const STATUS_ORDER = ["draft", "sent", "viewed", "paid", "overdue", "converted"] as const;
+
+function formatDate(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function UserDetailPanel({ userId }: { userId: string }) {
+  const [detail, setDetail] = useState<UserDetail | null>(null);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/admin/users/${userId}`);
+        if (!res.ok) throw new Error("Failed to load details");
+        const data = (await res.json()) as UserDetail;
+        if (!cancelled) setDetail(data);
+      } catch {
+        if (!cancelled) setError(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  if (error) {
+    return (
+      <div className="px-4 pb-4 text-xs text-destructive">
+        Failed to load user details. Try again.
+      </div>
+    );
+  }
+
+  if (!detail) {
+    return (
+      <div className="px-4 pb-4 flex items-center gap-2 text-xs text-muted-foreground">
+        <Loader2 className="h-3 w-3 animate-spin" /> Loading details…
+      </div>
+    );
+  }
+
+  const { usage, subscription, profile, flags } = detail;
+  const unlimitedClients = subscription.allocatedFeatures.includes("unlimited_clients");
+  const statusChips = STATUS_ORDER.filter((s) => (usage.byStatus[s] ?? 0) > 0);
+
+  return (
+    <div className="px-4 pb-5 pt-1 space-y-4 bg-muted/30">
+      {/* Risk flags */}
+      {flags.length > 0 ? (
+        <div className="flex gap-2 flex-wrap">
+          {flags.map((f) => (
+            <FlagBadge key={f} flag={f} />
+          ))}
+        </div>
+      ) : (
+        <div className="text-xs text-muted-foreground">No risk flags — healthy account.</div>
+      )}
+
+      {/* Usage stats */}
+      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+        <MiniStat
+          label="Clients"
+          value={
+            unlimitedClients
+              ? String(usage.clientCount)
+              : `${usage.clientCount} / ${FREE_TIER_LIMITS.maxClients}`
+          }
+        />
+        <MiniStat label="Documents" value={String(usage.totalDocuments)} />
+        <MiniStat label="Invoices" value={String(usage.invoices)} />
+        <MiniStat label="Quotes" value={String(usage.quotes)} />
+        <MiniStat label="Last 30 days" value={String(usage.documentsLast30Days)} />
+        <MiniStat label="Est. spend" value={`R${usage.estimatedSpendRands}`} />
+      </div>
+
+      {/* Document status breakdown */}
+      {statusChips.length > 0 && (
+        <div className="flex gap-2 flex-wrap items-center">
+          <span className="text-xs text-muted-foreground mr-1">By status:</span>
+          {statusChips.map((s) => (
+            <Badge key={s} variant="outline" className="text-xs font-normal">
+              {s.charAt(0).toUpperCase() + s.slice(1)}: {usage.byStatus[s]}
+            </Badge>
+          ))}
+        </div>
+      )}
+
+      {/* Activity dates */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+        <DateItem label="Last document created" value={usage.lastDocumentAt} />
+        <DateItem label="Last document sent" value={usage.lastSentAt} />
+        <DateItem label="Last payment received" value={usage.lastPaidAt} />
+        <DateItem label="Joined" value={detail.user.createdAt} />
+      </div>
+
+      {/* Subscription details */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+        <DateItem label="Activated" value={subscription.activatedAt} />
+        <DateItem label="Expires" value={subscription.expiresAt} />
+        <DateItem label="Trial ends" value={subscription.trialExpiresAt} />
+        <div className="rounded-md border bg-background p-2">
+          <div className="text-muted-foreground">Days remaining</div>
+          <div className="font-medium mt-0.5">{subscription.daysRemaining}</div>
+        </div>
+      </div>
+
+      {/* Allocated features */}
+      <div className="flex gap-1.5 flex-wrap items-center">
+        <span className="text-xs text-muted-foreground mr-1">Features:</span>
+        {subscription.allocatedFeatures.length > 0 ? (
+          subscription.allocatedFeatures.map((f) => (
+            <Badge key={f} variant="secondary" className="text-xs font-normal">
+              {FEATURE_LABELS[f] ?? f}
+            </Badge>
+          ))
+        ) : (
+          <span className="text-xs text-muted-foreground">None (free tier)</span>
+        )}
+      </div>
+
+      {/* Profile completeness */}
+      <div className="flex gap-1.5 flex-wrap items-center">
+        <span className="text-xs text-muted-foreground mr-1">
+          Profile {profile.completenessScore}/5:
+        </span>
+        <CompletenessChip label="Logo" ok={profile.hasLogo} />
+        <CompletenessChip label="Address" ok={profile.hasAddress} />
+        <CompletenessChip label="VAT" ok={profile.hasVatNumber} />
+        <CompletenessChip label="Banking" ok={profile.hasBanking} />
+        <CompletenessChip label="Phone" ok={profile.hasPhone} />
+      </div>
+    </div>
+  );
+}
+
+function MiniStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border bg-background p-2">
+      <div className="text-muted-foreground text-xs truncate">{label}</div>
+      <div className="font-medium text-sm mt-0.5">{value}</div>
+    </div>
+  );
+}
+
+function DateItem({ label, value }: { label: string; value: string | null }) {
+  return (
+    <div className="rounded-md border bg-background p-2">
+      <div className="text-muted-foreground">{label}</div>
+      <div className="font-medium mt-0.5">{formatDate(value)}</div>
+    </div>
+  );
+}
+
+function FlagBadge({ flag }: { flag: string }) {
+  const meta = FLAG_META[flag] ?? { label: flag, tone: "neutral" as const };
+  const toneClass = {
+    red: "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300",
+    amber: "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300",
+    sky: "bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300",
+    neutral: "bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300",
+  }[meta.tone];
+  return (
+    <Badge variant="secondary" className={`text-xs ${toneClass}`}>
+      {meta.label}
+    </Badge>
+  );
+}
+
+function CompletenessChip({ label, ok }: { label: string; ok: boolean }) {
+  return (
+    <Badge
+      variant="outline"
+      className={`text-xs font-normal ${ok ? "border-emerald-300 text-emerald-700 dark:border-emerald-700 dark:text-emerald-300" : "text-muted-foreground"}`}
+    >
+      {ok ? <Check className="h-3 w-3 mr-1" /> : <X className="h-3 w-3 mr-1" />}
+      {label}
+    </Badge>
   );
 }
