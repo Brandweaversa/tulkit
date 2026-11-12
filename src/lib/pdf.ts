@@ -1,4 +1,4 @@
-import { jsPDF } from "jspdf";
+import { jsPDF, GState } from "jspdf";
 import autoTable from "jspdf-autotable";
 import type { BusinessProfile, InvoiceDocument } from "./types";
 import { computeTotals, formatCurrency, formatDate } from "./format";
@@ -102,7 +102,7 @@ export function generateInvoicePdf({ business, doc, user }: PdfOptions): jsPDF {
     business.email,
     business.phone,
     business.vatNumber ? `VAT: ${business.vatNumber}` : "",
-  ].filter(Boolean);
+  ].filter((line): line is string => Boolean(line));
 
   // Use splitTextToSize to wrap long lines, with proper line spacing
   const maxBizLineW = 220;
@@ -165,7 +165,7 @@ export function generateInvoicePdf({ business, doc, user }: PdfOptions): jsPDF {
     client.email,
     client.phone,
     client.vatNumber ? `VAT: ${client.vatNumber}` : "",
-  ].filter(Boolean);
+  ].filter((line): line is string => Boolean(line));
 
   const maxClientLineW = 250;
   let clientTextY = billToY + 32;
@@ -324,7 +324,7 @@ export function generateInvoicePdf({ business, doc, user }: PdfOptions): jsPDF {
   // ----- Watermark (free users) -----
   if (showWatermark) {
     pdf.saveGraphicsState();
-    pdf.setGState(new pdf.GState({ opacity: 0.12 }));
+    pdf.setGState(new GState({ opacity: 0.12 }));
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(64);
     pdf.setTextColor(150, 150, 150);

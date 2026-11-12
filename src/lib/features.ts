@@ -34,20 +34,21 @@ export function canCreateClient(
   return currentClientCount < FREE_TIER_LIMITS.maxClients;
 }
 
-// Days remaining in subscription (0 if expired/none)
-export function daysRemaining(expiresAt?: string): number {
+// Days remaining in subscription (0 if expired/none).
+// Accepts an ISO string or a Date so callers can pass Prisma fields directly.
+export function daysRemaining(expiresAt?: string | Date | null): number {
   if (!expiresAt) return 0;
-  const expiry = new Date(expiresAt);
-  const now = new Date();
-  const diff = expiry.getTime() - now.getTime();
+  const expiry = typeof expiresAt === "string" ? new Date(expiresAt) : expiresAt;
+  const diff = expiry.getTime() - Date.now();
   if (diff <= 0) return 0;
   return Math.ceil(diff / (1000 * 60 * 60 * 24));
 }
 
 // Check if a subscription has expired (server-side check)
-export function isSubscriptionExpired(expiresAt?: string): boolean {
+export function isSubscriptionExpired(expiresAt?: string | Date | null): boolean {
   if (!expiresAt) return true;
-  return new Date(expiresAt).getTime() < Date.now();
+  const t = typeof expiresAt === "string" ? new Date(expiresAt) : expiresAt;
+  return t.getTime() < Date.now();
 }
 
 // Default features allocated when admin marks a user as paid (all features)

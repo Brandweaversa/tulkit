@@ -19,6 +19,7 @@ interface AuthUser {
   role: string;
   subscriptionStatus: string;
   subscriptionExpiresAt?: string;
+  trialExpiresAt?: string;
   allocatedFeatures: FeatureKey[];
 }
 
