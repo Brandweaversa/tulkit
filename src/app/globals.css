@@ -86,7 +86,7 @@
   /* Font sizes — change these to scale the whole app */
   --font-size-xs: 0.75rem;      /* 12px — labels, badges */
   --font-size-sm: 0.75rem;     /* 14px — body text, inputs */
-  --font-size-base: 0.85rem;       /* 16px — default */
+  --font-size-base: 0.9rem;       /* 16px — default */
   --font-size-lg: 1.125rem;     /* 18px — card titles */
   --font-size-xl: 1.25rem;      /* 20px — page titles */
   --font-size-2xl: 1.5rem;      /* 24px — large headings */
