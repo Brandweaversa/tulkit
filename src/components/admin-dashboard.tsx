@@ -100,23 +100,36 @@ interface Stats {
   estimatedMonthlyRevenue: number;
 }
 
+interface AuditEntry {
+  id: string;
+  action: string;
+  adminEmail: string | null;
+  targetEmail: string | null;
+  details: Record<string, unknown> | null;
+  createdAt: string;
+}
+
 export function AdminDashboard() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
+  const [auditLog, setAuditLog] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [subscribeUser, setSubscribeUser] = useState<AdminUser | null>(null);
   const [detailUserId, setDetailUserId] = useState<string | null>(null);
 
   async function loadData() {
     try {
-      const [usersRes, statsRes] = await Promise.all([
+      const [usersRes, statsRes, auditRes] = await Promise.all([
         fetch("/api/admin/users"),
         fetch("/api/admin/stats"),
+        fetch("/api/admin/audit"),
       ]);
       const usersData = await usersRes.json();
       const statsData = await statsRes.json();
+      const auditData = await auditRes.json().catch(() => ({ entries: [] }));
       setUsers(usersData.users ?? []);
       setStats(statsData);
+      setAuditLog(auditData.entries ?? []);
     } catch (e) {
       console.error(e);
       toast({ title: "Failed to load admin data", variant: "destructive" });
@@ -171,8 +184,21 @@ export function AdminDashboard() {
   }
 
   async function handleDeleteUser(user: AdminUser) {
+    // Build an impact summary from the detail endpoint so the admin sees
+    // exactly how much data this delete will destroy.
+    let impact = "\n- All their clients\n- All their invoices & quotes";
+    try {
+      const detailRes = await fetch(`/api/admin/users/${user.id}`);
+      if (detailRes.ok) {
+        const detail = await detailRes.json();
+        impact = `\n- ${detail.usage.clientCount} client${detail.usage.clientCount === 1 ? "" : "s"}\n- ${detail.usage.totalDocuments} invoice${detail.usage.invoices === 1 ? "" : "s"} & quote${detail.usage.quotes === 1 ? "" : "s"}`;
+      }
+    } catch {
+      // Keep the generic impact text if the detail fetch fails
+    }
+
     const confirmed = confirm(
-      `Delete ${user.email}?\n\nThis permanently removes:\n- Their account\n- All their clients\n- All their invoices & quotes\n\nThis cannot be undone.`,
+      `Delete ${user.email}?\n\nThis permanently removes:\n- Their account${impact}\n\nThis cannot be undone.`,
     );
     if (!confirmed) return;
 
@@ -291,6 +317,48 @@ export function AdminDashboard() {
                     </div>
                   </div>
                   {detailUserId === u.id && <UserDetailPanel userId={u.id} />}
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Admin activity (audit trail) */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Admin activity</CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Latest {auditLog.length || ""} logged action{auditLog.length === 1 ? "" : "s"} — every
+            activation, revocation, and deletion.
+          </p>
+        </CardHeader>
+        <CardContent className="p-0">
+          {auditLog.length === 0 ? (
+            <div className="py-6 text-center text-sm text-muted-foreground">
+              No admin actions logged yet.
+            </div>
+          ) : (
+            <div className="divide-y">
+              {auditLog.slice(0, 10).map((e) => (
+                <div key={e.id} className="px-4 py-2.5 flex items-center gap-3 flex-wrap">
+                  <AuditActionBadge action={e.action} />
+                  <span className="text-sm min-w-0 truncate">
+                    <span className="text-muted-foreground">{e.adminEmail || "admin"}</span>
+                    {" → "}
+                    <span className="font-medium">{e.targetEmail || "unknown user"}</span>
+                  </span>
+                  <span className="text-xs text-muted-foreground truncate">
+                    {describeAuditDetails(e)}
+                  </span>
+                  <span className="text-xs text-muted-foreground ml-auto shrink-0">
+                    {new Date(e.createdAt).toLocaleString(undefined, {
+                      month: "short",
+                      day: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
                 </div>
               ))}
             </div>
@@ -661,4 +729,52 @@ function CompletenessChip({ label, ok }: { label: string; ok: boolean }) {
       {label}
     </Badge>
   );
+}
+
+function AuditActionBadge({ action }: { action: string }) {
+  const meta: Record<string, { label: string; className: string }> = {
+    activate_subscription: {
+      label: "Activated",
+      className:
+        "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
+    },
+    revoke_subscription: {
+      label: "Revoked",
+      className: "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300",
+    },
+    delete_user: {
+      label: "Deleted",
+      className: "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300",
+    },
+  };
+  const m = meta[action] ?? { label: action, className: "" };
+  return (
+    <Badge variant="secondary" className={`text-xs shrink-0 ${m.className}`}>
+      {m.label}
+    </Badge>
+  );
+}
+
+function describeAuditDetails(e: AuditEntry): string {
+  const d = e.details;
+  if (!d) return "";
+  if (e.action === "activate_subscription") {
+    const days = typeof d.durationDays === "number" ? d.durationDays : null;
+    const features = Array.isArray(d.features) ? d.features.length : null;
+    const parts: string[] = [];
+    if (days) parts.push(`${days} days`);
+    if (features !== null) parts.push(`${features} feature${features === 1 ? "" : "s"}`);
+    return parts.join(" · ");
+  }
+  if (e.action === "revoke_subscription") {
+    return d.previousStatus ? `was "${String(d.previousStatus)}"` : "";
+  }
+  if (e.action === "delete_user") {
+    const parts: string[] = [];
+    if (typeof d.clients === "number") parts.push(`${d.clients} clients`);
+    if (typeof d.documents === "number") parts.push(`${d.documents} documents`);
+    if (d.authDeleted === false) parts.push("auth account not removed");
+    return parts.join(" · ");
+  }
+  return "";
 }
