@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { logAdminAction } from "@/lib/audit";
 import { daysRemaining } from "@/lib/features";
 import { FREE_TIER_LIMITS, FEATURE_KEYS } from "@/lib/types";
 import type { FeatureKey } from "@/lib/types";
-import { createClient } from "@supabase/supabase-js";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 function unauthorized() {
   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -200,29 +201,48 @@ export async function DELETE(_request: Request, { params }: Params) {
   const supabaseUserId = profile.userId;
   const userEmail = profile.email ?? "unknown";
 
-  // 1. Delete from database (cascades to clients, documents, line items)
-  await db.businessProfile.delete({ where: { id } });
+  // Impact counts for the audit trail
+  const [clientCount, documentCount] = await Promise.all([
+    db.client.count({ where: { userId: supabaseUserId } }),
+    db.invoiceDocument.count({ where: { userId: supabaseUserId } }),
+  ]);
+
+  // 1. Delete all app data + profile.
+  //    NOTE: Client and InvoiceDocument reference the user by userId only (no
+  //    FK to BusinessProfile), so a profile delete does NOT cascade — delete
+  //    them explicitly.
+  await db.$transaction(async (tx) => {
+    await tx.invoiceDocument.deleteMany({ where: { userId: supabaseUserId } });
+    await tx.client.deleteMany({ where: { userId: supabaseUserId } });
+    await tx.businessProfile.delete({ where: { id } });
+  });
 
   // 2. Delete from Supabase Auth (requires service role key)
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (serviceRoleKey) {
-    try {
-      const supabaseAdmin = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        serviceRoleKey,
-        { auth: { autoRefreshToken: false, persistSession: false } },
-      );
-      const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(supabaseUserId);
-      if (authError) {
-        console.error("Failed to delete Supabase auth user:", authError);
-        // DB profile is already deleted — auth user is orphaned but harmless
-      }
-    } catch (e) {
-      console.error("Supabase auth deletion error:", e);
+  let authDeleted = false;
+  try {
+    const supabaseAdmin = createSupabaseAdminClient();
+    const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(supabaseUserId);
+    authDeleted = !authError;
+    if (authError) {
+      console.error("Failed to delete Supabase auth user:", authError);
+      // DB profile is already deleted — auth user is orphaned but harmless
     }
-  } else {
-    console.warn("SUPABASE_SERVICE_ROLE_KEY not set — auth user not deleted");
+  } catch (e) {
+    console.error("Supabase auth deletion error:", e);
   }
+
+  await logAdminAction({
+    adminUserId: admin.id,
+    adminEmail: admin.email,
+    action: "delete_user",
+    targetUserId: supabaseUserId,
+    targetEmail: profile.email,
+    details: {
+      clients: clientCount,
+      documents: documentCount,
+      authDeleted,
+    },
+  });
 
   return NextResponse.json({
     success: true,

@@ -129,3 +129,19 @@ model LineItem {
   @@index([documentId])
   @@map("line_items")
 }
+
+// Audit trail for platform-admin actions (subscribe, revoke, delete).
+// Written by src/lib/audit.ts — logging failures never block the action.
+model AdminAuditLog {
+  id           String   @id @default(cuid())
+  adminUserId  String   // Supabase auth user ID of the admin who performed the action
+  adminEmail   String?
+  action       String   // "activate_subscription" | "revoke_subscription" | "delete_user"
+  targetUserId String   // Supabase auth user ID of the affected user
+  targetEmail  String?
+  details      String?  // JSON string with action specifics (duration, features, counts)
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
+  @@map("admin_audit_log")
+}
