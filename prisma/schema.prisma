@@ -41,9 +41,10 @@ model BusinessProfile {
 
   // Role + subscription
   role              String   @default("user") // "admin" | "user"
-  subscriptionStatus String  @default("none") // "none" | "active" | "expired"
+  subscriptionStatus String  @default("none") // "none" | "trial" | "active" | "expired"
   subscriptionExpiresAt DateTime?
   subscriptionActivatedAt DateTime?
+  trialExpiresAt    DateTime? // when the 30-day free trial ends
   // Comma-separated feature keys allocated to this user (when subscription active)
   // e.g. "pdf_download,whatsapp_share,email_share,custom_branding"
   allocatedFeatures String?

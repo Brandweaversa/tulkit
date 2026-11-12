@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard,
@@ -11,7 +11,7 @@ import {
   Crown,
   Shield,
 } from "lucide-react";
-import { useStore, hasPendingOrFailedSaves } from "@/lib/store";
+import { useStore } from "@/lib/store";
 import { Dashboard } from "@/components/dashboard";
 import { DocumentEditor } from "@/components/document-editor";
 import { ClientsPanel } from "@/components/clients-panel";
@@ -27,21 +27,6 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
-import type { InvoiceDocument } from "@/lib/types";
-
-// Check if a document is an empty draft (no descriptions, zero amounts)
-function isEmptyDraft(doc: InvoiceDocument): boolean {
-  if (doc.status !== "draft") return false;
-  const allEmpty = doc.items.every(
-    (it) =>
-      (!it.description || it.description.trim() === "") &&
-      it.unitPrice === 0 &&
-      it.quantity <= 1,
-  );
-  const defaultNotes = doc.type === "invoice" ? "Thank you for your business." : "";
-  const notesAreDefault = !doc.notes || doc.notes === defaultNotes;
-  return allEmpty && notesAreDefault;
-}
 
 type View = "dashboard" | "clients" | "settings" | "admin";
 
@@ -56,9 +41,6 @@ export default function Home() {
   const loadFromServer = useStore((s) => s.loadFromServer);
   const signOut = useStore((s) => s.signOut);
   const createDocument = useStore((s) => s.createDocument);
-  const deleteDocument = useStore((s) => s.deleteDocument);
-  const flushPendingSave = useStore((s) => s.flushPendingSave);
-  const creatingRef = useRef(false); // prevent double-click creating duplicates
 
   useEffect(() => {
     fetchAuthUser();
@@ -70,84 +52,28 @@ export default function Home() {
     }
   }, [authUser, loadFromServer]);
 
-  // beforeunload guard — warn if there are pending or failed saves
-  useEffect(() => {
-    const handler = (e: BeforeUnloadEvent) => {
-      if (hasPendingOrFailedSaves()) {
-        e.preventDefault();
-        e.returnValue = "";
-      }
-    };
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, []);
-
-  // NOTE: loadFromServer is only triggered by auth state changes above.
-  // We do NOT re-fetch documents while the user is editing (editingDocId is set),
-  // because that would overwrite local changes with server state and could
-  // trigger false "empty draft" auto-deletes if a save failed.
-
-  async function handleNewDoc(type: "invoice" | "quote") {
-    // Prevent double-clicks from creating duplicate documents
-    if (creatingRef.current) return;
-    creatingRef.current = true;
-    try {
-      const doc = await createDocument(type);
+  function handleNewDoc(type: "invoice" | "quote") {
+    createDocument(type).then((doc) => {
       if (doc) {
         setEditingDocId(doc.id);
         setView("dashboard");
       } else {
-        // Check if it failed because no clients exist
-        const clientCount = useStore.getState().clients.length;
-        if (clientCount === 0) {
-          toast({
-            title: "Create a client first",
-            description: "Go to the Clients tab and add at least one client before creating a document.",
-            variant: "destructive",
-          });
-          setView("clients");
-        } else {
-          toast({
-            title: "Could not create document",
-            description: "You may have hit the free tier limit. Upgrade for unlimited documents.",
-            variant: "destructive",
-          });
-          setUpgradeOpen(true);
-        }
+        toast({
+          title: "Could not create document",
+          description: "You may have hit the free tier limit. Upgrade for unlimited documents.",
+          variant: "destructive",
+        });
+        setUpgradeOpen(true);
       }
-    } finally {
-      creatingRef.current = false;
-    }
-  }
-
-  async function handleBack() {
-    // Flush any pending debounced save before navigating away
-    if (editingDocId) {
-      await flushPendingSave(editingDocId);
-
-      // Auto-delete empty drafts — but only if:
-      // 1. Recently created (within 2 minutes)
-      // 2. Status is draft (never sent/paid)
-      // 3. No sentAt or paidAt timestamps
-      const doc = useStore.getState().documents.find((d) => d.id === editingDocId);
-      if (doc && isEmptyDraft(doc)) {
-        const created = new Date(doc.createdAt).getTime();
-        const twoMinutesAgo = Date.now() - 2 * 60 * 1000;
-        if (created > twoMinutesAgo && doc.status === "draft" && !doc.sentAt && !doc.paidAt) {
-          const success = await deleteDocument(editingDocId);
-          if (success) {
-            toast({ title: "Empty draft deleted", description: "No content was added." });
-          } else {
-            toast({ title: "Could not delete empty draft", description: "It will remain in your list.", variant: "destructive" });
-          }
-        }
-      }
-    }
-    setEditingDocId(null);
+    });
   }
 
   function handleOpenDoc(id: string) {
     setEditingDocId(id);
+  }
+
+  function handleBack() {
+    setEditingDocId(null);
   }
 
   // Loading state
@@ -194,12 +120,8 @@ export default function Home() {
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
           <button
             onClick={() => {
-              // Route through handleBack so pending saves are flushed + empty drafts are cleaned up
-              if (editingDocId) {
-                handleBack();
-              } else {
-                setView("dashboard");
-              }
+              setEditingDocId(null);
+              setView("dashboard");
             }}
             className="flex items-center gap-2 min-w-0"
           >
@@ -209,9 +131,9 @@ export default function Home() {
             >
               <img src="/tulkit.png" alt="Tulkit" className="h-7 w-auto object-contain" />
             </span>
-<div className="min-w-0 hidden sm:block">
-  <div className="font-bold text-sm truncate">Invoices & Quotes made easy</div>
-</div>
+            <div className="min-w-0 hidden sm:block">
+              <div className="font-bold text-sm truncate">Invoices & Quotes made easy</div>
+            </div>
           </button>
 
           {!editingDocId && (

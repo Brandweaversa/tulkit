@@ -4,14 +4,15 @@ import { FEATURE_KEYS, FREE_TIER_LIMITS } from "./types";
 // Check if the user has access to a specific feature.
 // A feature is unlocked if:
 //   1. User is admin (always has everything), OR
-//   2. User has an active subscription AND the feature is in their allocatedFeatures list
+//   2. User has an active subscription OR trial AND the feature is in their allocatedFeatures list
 export function can(
   user: { role: string; subscriptionStatus: string; allocatedFeatures: FeatureKey[] } | null,
   feature: FeatureKey,
 ): boolean {
   if (!user) return false;
   if (user.role === "admin") return true;
-  if (user.subscriptionStatus !== "active") return false;
+  // Trial and active subscriptions both unlock features
+  if (user.subscriptionStatus !== "active" && user.subscriptionStatus !== "trial") return false;
   return user.allocatedFeatures.includes(feature);
 }
 

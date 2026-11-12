@@ -22,7 +22,7 @@ export interface Client {
 }
 
 export type UserRole = "admin" | "user";
-export type SubscriptionStatus = "none" | "active" | "expired";
+export type SubscriptionStatus = "none" | "trial" | "active" | "expired";
 
 // All monetizable features. Free users have NONE of these.
 // When a user has an active subscription, they get access to allocated features.
@@ -85,6 +85,7 @@ export interface BusinessProfile {
   subscriptionStatus: SubscriptionStatus;
   subscriptionExpiresAt?: string; // ISO
   subscriptionActivatedAt?: string; // ISO
+  trialExpiresAt?: string; // ISO — when 30-day free trial ends
   allocatedFeatures: FeatureKey[]; // empty = free tier
 }
 
@@ -122,5 +123,6 @@ export interface AuthUser {
   role: UserRole;
   subscriptionStatus: SubscriptionStatus;
   subscriptionExpiresAt?: string;
+  trialExpiresAt?: string;
   allocatedFeatures: FeatureKey[];
 }

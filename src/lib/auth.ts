@@ -9,6 +9,7 @@ export interface SessionUser {
   role: string;
   subscriptionStatus: string;
   subscriptionExpiresAt?: string;
+  trialExpiresAt?: string;
   allocatedFeatures: string[];
 }
 
@@ -21,12 +22,25 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
     } = await supabase.auth.getUser();
     if (!user) return null;
 
-    // Get the user's profile to check role + subscription
     const profile = await ensureBusinessProfile(user.id);
 
-    // Server-side subscription expiry check
+    // Server-side subscription/trial expiry check
     let status = profile.subscriptionStatus;
-    if (status === "active" && isSubscriptionExpired(profile.subscriptionExpiresAt ?? undefined)) {
+    const now = new Date();
+
+    // Check trial expiry
+    if (status === "trial" && profile.trialExpiresAt && profile.trialExpiresAt < now) {
+      await db.businessProfile.update({
+        where: { userId: user.id },
+        data: {
+          subscriptionStatus: "expired",
+          allocatedFeatures: null,
+        },
+      });
+      status = "expired";
+    }
+    // Check paid subscription expiry
+    else if (status === "active" && isSubscriptionExpired(profile.subscriptionExpiresAt ?? undefined)) {
       await db.businessProfile.update({
         where: { userId: user.id },
         data: { subscriptionStatus: "expired" },
@@ -40,26 +54,23 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
       role: profile.role,
       subscriptionStatus: status,
       subscriptionExpiresAt: profile.subscriptionExpiresAt?.toISOString() ?? undefined,
+      trialExpiresAt: profile.trialExpiresAt?.toISOString() ?? undefined,
       allocatedFeatures: profile.allocatedFeatures
         ? profile.allocatedFeatures.split(",").filter(Boolean)
         : [],
     };
   } catch (e) {
-    // If Supabase is unreachable, env vars are missing, or session is invalid,
-    // treat as unauthenticated. The user will see the login screen.
     console.error("Auth check failed:", e);
     return null;
   }
 }
 
 // Returns the current user, or null if not authenticated.
-// Callers MUST check for null and return a 401 response.
 export async function requireAuth(): Promise<SessionUser | null> {
   return await getCurrentUser();
 }
 
 // Returns the current admin user, or null if not authenticated / not admin.
-// Callers MUST check for null and return a 401 or 403 response.
 export async function requireAdmin(): Promise<SessionUser | null> {
   const user = await getCurrentUser();
   if (!user) return null;
@@ -77,7 +88,6 @@ export async function ensureBusinessProfile(
   });
   if (existing) return existing;
 
-  // Check if this is the first user (admin auto-assign)
   const userCount = await db.businessProfile.count();
   const role = userCount === 0 ? "admin" : "user";
 

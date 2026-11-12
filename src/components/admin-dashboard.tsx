@@ -15,7 +15,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Users, Crown, Clock, TrendingUp, UserCheck, UserX, Trash2 } from "lucide-react";
+import { Users, Crown, Clock, TrendingUp, UserCheck, UserX, Trash2, Sparkles } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { FEATURE_KEYS, FEATURE_LABELS } from "@/lib/types";
 import type { FeatureKey } from "@/lib/types";
@@ -276,6 +276,13 @@ function StatCard({
 }
 
 function StatusBadge({ status, days }: { status: string; days: number }) {
+  if (status === "trial") {
+    return (
+      <Badge variant="secondary" className="bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300">
+        <Sparkles className="h-3 w-3 mr-1" /> Trial · {days}d left
+      </Badge>
+    );
+  }
   if (status === "active") {
     return (
       <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">

@@ -44,9 +44,10 @@ export function serializeBusiness(b: PrismaBusiness): BusinessProfile {
     defaultTaxRate: b.defaultTaxRate,
     defaultPaymentTerms: b.defaultPaymentTerms,
     role: b.role as "admin" | "user",
-    subscriptionStatus: b.subscriptionStatus as "none" | "active" | "expired",
+    subscriptionStatus: b.subscriptionStatus as "none" | "trial" | "active" | "expired",
     subscriptionExpiresAt: b.subscriptionExpiresAt?.toISOString(),
     subscriptionActivatedAt: b.subscriptionActivatedAt?.toISOString(),
+    trialExpiresAt: b.trialExpiresAt?.toISOString(),
     allocatedFeatures: parseFeatures(b.allocatedFeatures),
   };
 }
