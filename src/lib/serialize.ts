@@ -87,6 +87,8 @@ export function serializeDoc(
     items: doc.items.map(serializeLineItem),
     taxRate: doc.taxRate,
     globalDiscountPercent: doc.globalDiscountPercent,
+    taxInclusive: doc.taxInclusive,
+    depositPercent: doc.depositPercent,
     notes: doc.notes ?? undefined,
     paymentTerms: doc.paymentTerms ?? undefined,
     convertedFromId: doc.convertedFromId ?? undefined,

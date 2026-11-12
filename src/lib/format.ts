@@ -76,20 +76,53 @@ export function lineSubtotal(item: LineItem): number {
 
 // Totals for a document — returns all the numbers the UI/PDF needs.
 export interface DocumentTotals {
+  /** Sum of line amounts (as entered — includes tax when taxInclusive). */
   subtotal: number;
   globalDiscountAmount: number;
+  /** Amount excluding tax (the tax base). */
   taxableBase: number;
   taxAmount: number;
+  /** Grand total: with tax-inclusive pricing this equals subtotal minus discounts. */
   total: number;
+  /** Amount due upfront from depositPercent (0 when no deposit). */
+  depositAmount: number;
+  /** Total minus deposit — what is still owed. */
+  balanceDue: number;
 }
 
 export function computeTotals(doc: InvoiceDocument): DocumentTotals {
   const subtotal = doc.items.reduce((sum, it) => sum + lineSubtotal(it), 0);
   const globalDiscountAmount = subtotal * (doc.globalDiscountPercent / 100);
-  const taxableBase = subtotal - globalDiscountAmount;
-  const taxAmount = taxableBase * (doc.taxRate / 100);
-  const total = taxableBase + taxAmount;
-  return { subtotal, globalDiscountAmount, taxableBase, taxAmount, total };
+  const afterDiscounts = subtotal - globalDiscountAmount;
+
+  let taxableBase: number;
+  let taxAmount: number;
+  let total: number;
+  if (doc.taxInclusive) {
+    // Prices already include tax — extract it instead of adding it.
+    // e.g. R115 at 15%: tax = 115 - (115 / 1.15) = 15, base = 100.
+    total = afterDiscounts;
+    taxableBase = total / (1 + doc.taxRate / 100);
+    taxAmount = total - taxableBase;
+  } else {
+    taxableBase = afterDiscounts;
+    taxAmount = taxableBase * (doc.taxRate / 100);
+    total = taxableBase + taxAmount;
+  }
+
+  const depositPercent = Math.min(100, Math.max(0, doc.depositPercent ?? 0));
+  const depositAmount = total * (depositPercent / 100);
+  const balanceDue = total - depositAmount;
+
+  return {
+    subtotal,
+    globalDiscountAmount,
+    taxableBase,
+    taxAmount,
+    total,
+    depositAmount,
+    balanceDue,
+  };
 }
 
 // Pretty-print a phone number into international format for wa.me deep links.

@@ -556,6 +556,8 @@ function buildSavePayload(doc: InvoiceDocument) {
     items: doc.items,
     taxRate: doc.taxRate,
     globalDiscountPercent: doc.globalDiscountPercent,
+    taxInclusive: doc.taxInclusive ?? false,
+    depositPercent: doc.depositPercent ?? 0,
     notes: doc.notes,
     paymentTerms: doc.paymentTerms,
     issueDate: doc.issueDate,

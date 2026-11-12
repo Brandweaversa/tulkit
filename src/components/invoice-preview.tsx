@@ -152,7 +152,10 @@ export function InvoicePreview({ business, doc, showWatermark }: Props) {
         {/* Totals */}
         <div className="flex justify-end">
           <div className="w-full sm:w-72 space-y-1.5 text-sm">
-            <Row label="Subtotal" value={formatCurrency(totals.subtotal, business.currencySymbol)} />
+            <Row
+              label={doc.taxInclusive ? "Subtotal (incl. tax)" : "Subtotal"}
+              value={formatCurrency(totals.subtotal, business.currencySymbol)}
+            />
             {totals.globalDiscountAmount > 0 && (
               <Row
                 label={`Discount (${doc.globalDiscountPercent}%)`}
@@ -160,7 +163,7 @@ export function InvoicePreview({ business, doc, showWatermark }: Props) {
               />
             )}
             <Row
-              label={`Tax (${doc.taxRate}%)`}
+              label={`Tax (${doc.taxRate}%${doc.taxInclusive ? " incl." : ""})`}
               value={formatCurrency(totals.taxAmount, business.currencySymbol)}
             />
             <div
@@ -170,6 +173,18 @@ export function InvoicePreview({ business, doc, showWatermark }: Props) {
               <span>TOTAL</span>
               <span>{formatCurrency(totals.total, business.currencySymbol)}</span>
             </div>
+            {(doc.depositPercent ?? 0) > 0 && (
+              <div className="space-y-1.5 pt-1">
+                <Row
+                  label={`Deposit now (${doc.depositPercent}%)`}
+                  value={`- ${formatCurrency(totals.depositAmount, business.currencySymbol)}`}
+                />
+                <div className="flex justify-between font-bold text-neutral-900 border-t pt-1">
+                  <span>Balance due</span>
+                  <span>{formatCurrency(totals.balanceDue, business.currencySymbol)}</span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

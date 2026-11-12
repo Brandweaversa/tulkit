@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import {
   Plus,
@@ -156,6 +157,8 @@ export function DocumentEditor({ docId, onBack }: Props) {
         items: doc!.items,
         taxRate: doc!.taxRate,
         globalDiscountPercent: doc!.globalDiscountPercent,
+        taxInclusive: doc!.taxInclusive ?? false,
+        depositPercent: doc!.depositPercent ?? 0,
         notes: doc!.notes,
         paymentTerms: doc!.paymentTerms,
       });
@@ -421,7 +424,7 @@ export function DocumentEditor({ docId, onBack }: Props) {
               <CardTitle className="text-base">Summary & notes</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="grid sm:grid-cols-2 gap-3">
+              <div className="grid sm:grid-cols-3 gap-3">
                 <div className="space-y-1.5">
                   <Label>Tax rate (%)</Label>
                   <Input
@@ -448,6 +451,37 @@ export function DocumentEditor({ docId, onBack }: Props) {
                     }
                   />
                 </div>
+                <div className="space-y-1.5">
+                  <Label>Deposit (%)</Label>
+                  <Input
+                    type="number"
+                    step="1"
+                    min="0"
+                    max="100"
+                    value={doc.depositPercent ?? 0}
+                    onChange={(e) =>
+                      updateDoc(doc.id, {
+                        depositPercent: Math.min(100, Math.max(0, Number(e.target.value) || 0)),
+                      })
+                    }
+                  />
+                  <p className="text-[10px] text-muted-foreground">
+                    e.g. 50 = half now, rest later. 0 = full amount due.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center justify-between rounded-md border p-3">
+                <div className="pr-3">
+                  <Label className="text-sm">Prices include tax</Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Turn on if your unit prices already include VAT — the tax is
+                    extracted from the total instead of added on top.
+                  </p>
+                </div>
+                <Switch
+                  checked={doc.taxInclusive ?? false}
+                  onCheckedChange={(v) => updateDoc(doc.id, { taxInclusive: v })}
+                />
               </div>
               <div className="space-y-1.5">
                 <Label>Payment terms</Label>
@@ -468,7 +502,10 @@ export function DocumentEditor({ docId, onBack }: Props) {
 
               {/* Totals summary */}
               <div className="rounded-md border p-3 space-y-1 text-sm">
-                <SummaryRow label="Subtotal" value={formatCurrency(totals.subtotal, business.currencySymbol)} />
+                <SummaryRow
+                  label={doc.taxInclusive ? "Subtotal (incl. tax)" : "Subtotal"}
+                  value={formatCurrency(totals.subtotal, business.currencySymbol)}
+                />
                 {totals.globalDiscountAmount > 0 && (
                   <SummaryRow
                     label={`Discount (${doc.globalDiscountPercent}%)`}
@@ -476,13 +513,25 @@ export function DocumentEditor({ docId, onBack }: Props) {
                   />
                 )}
                 <SummaryRow
-                  label={`Tax (${doc.taxRate}%)`}
+                  label={`Tax (${doc.taxRate}%${doc.taxInclusive ? " incl." : ""})`}
                   value={formatCurrency(totals.taxAmount, business.currencySymbol)}
                 />
                 <div className="flex justify-between font-bold pt-1 border-t mt-1">
                   <span>Total</span>
                   <span>{formatCurrency(totals.total, business.currencySymbol)}</span>
                 </div>
+                {(doc.depositPercent ?? 0) > 0 && (
+                  <>
+                    <SummaryRow
+                      label={`Deposit now (${doc.depositPercent}%)`}
+                      value={`- ${formatCurrency(totals.depositAmount, business.currencySymbol)}`}
+                    />
+                    <div className="flex justify-between font-semibold">
+                      <span>Balance due</span>
+                      <span>{formatCurrency(totals.balanceDue, business.currencySymbol)}</span>
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Save button at the bottom too */}

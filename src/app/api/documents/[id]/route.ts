@@ -46,7 +46,8 @@ export async function PUT(request: Request, { params }: Params) {
 
   const allowedFields = [
     "type", "number", "status", "issueDate", "dueDate",
-    "taxRate", "globalDiscountPercent", "notes", "paymentTerms",
+    "taxRate", "globalDiscountPercent", "taxInclusive", "depositPercent",
+    "notes", "paymentTerms",
     "clientName", "clientEmail", "clientPhone", "clientCompany",
     "clientAddress", "clientVatNumber",
   ];
@@ -55,6 +56,17 @@ export async function PUT(request: Request, { params }: Params) {
     if (field in body) {
       data[field] = body[field];
     }
+  }
+
+  // Sanitize the pricing fields so bad input can never corrupt totals
+  if ("taxInclusive" in data) {
+    data.taxInclusive = Boolean(data.taxInclusive);
+  }
+  if ("depositPercent" in data) {
+    const pct = Number(data.depositPercent);
+    data.depositPercent = Number.isFinite(pct)
+      ? Math.min(100, Math.max(0, pct))
+      : 0;
   }
 
   // Handle status timestamps — clear when reverting

@@ -101,6 +101,8 @@ export interface InvoiceDocument {
   items: LineItem[];
   taxRate: number;
   globalDiscountPercent: number;
+  taxInclusive: boolean;
+  depositPercent: number;
   notes?: string;
   paymentTerms?: string;
   convertedFromId?: string;

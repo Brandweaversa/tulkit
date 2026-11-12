@@ -62,6 +62,8 @@ export async function POST(_request: Request, { params }: Params) {
         dueDate: addDaysISO(todayISO(), 7),
         taxRate: quote.taxRate,
         globalDiscountPercent: quote.globalDiscountPercent,
+        taxInclusive: quote.taxInclusive,
+        depositPercent: quote.depositPercent,
         notes: "Thank you for your business.",
         paymentTerms: quote.paymentTerms,
         convertedFromId: quote.id,

@@ -18,11 +18,22 @@ export function buildShareMessage({ business, doc }: ShareContext): string {
   const label = isInvoice ? "Invoice" : "Quote";
   const clientName = doc.clientSnapshot.company || doc.clientSnapshot.name;
 
+  // With a deposit, tell the client what to pay NOW, not just the total.
+  const amountLines: string[] = [
+    `Amount: ${formatCurrency(totals.total, business.currencySymbol)}`,
+  ];
+  if (totals.depositAmount > 0) {
+    amountLines.push(
+      `Pay now (${doc.depositPercent}% deposit): ${formatCurrency(totals.depositAmount, business.currencySymbol)}`,
+      `Balance: ${formatCurrency(totals.balanceDue, business.currencySymbol)}`,
+    );
+  }
+
   const lines = [
     `Hi ${clientName},`,
     "",
     `Here is your ${label.toLowerCase()} ${doc.number} from ${business.name}.`,
-    `Amount: ${formatCurrency(totals.total, business.currencySymbol)}`,
+    ...amountLines,
     isInvoice
       ? `Due: ${formatDate(doc.dueDate)}`
       : `Valid until: ${formatDate(doc.dueDate)}`,
@@ -99,8 +110,14 @@ export async function copySummaryToClipboard({
     totals.globalDiscountAmount > 0
       ? `Discount (${doc.globalDiscountPercent}%): -${formatCurrency(totals.globalDiscountAmount, business.currencySymbol)}`
       : "",
-    `Tax (${doc.taxRate}%): ${formatCurrency(totals.taxAmount, business.currencySymbol)}`,
+    `Tax (${doc.taxRate}%${doc.taxInclusive ? " incl." : ""}): ${formatCurrency(totals.taxAmount, business.currencySymbol)}`,
     `TOTAL: ${formatCurrency(totals.total, business.currencySymbol)}`,
+    totals.depositAmount > 0
+      ? `Deposit now (${doc.depositPercent}%): -${formatCurrency(totals.depositAmount, business.currencySymbol)}`
+      : "",
+    totals.depositAmount > 0
+      ? `BALANCE DUE: ${formatCurrency(totals.balanceDue, business.currencySymbol)}`
+      : "",
   ].filter(Boolean);
 
   await navigator.clipboard.writeText(lines.join("\n"));

@@ -97,6 +97,12 @@ model InvoiceDocument {
   dueDate    String
   taxRate    Float
   globalDiscountPercent Float @default(0)
+  // Prices already include tax (e.g. VAT-inclusive quotes) — tax is
+  // extracted from the totals instead of added on top.
+  taxInclusive Boolean @default(false)
+  // % of the total due upfront (0 = full amount due). e.g. 50 = half now,
+  // balance by the due date.
+  depositPercent Float @default(0)
   notes      String?
   paymentTerms String?
 

@@ -222,7 +222,10 @@ export function generateInvoicePdf({ business, doc, user }: PdfOptions): jsPDF {
   const totalsW = 220;
 
   const totalRows: [string, string][] = [
-    ["Subtotal", formatCurrency(totals.subtotal, business.currencySymbol)],
+    [
+      doc.taxInclusive ? "Subtotal (incl. tax)" : "Subtotal",
+      formatCurrency(totals.subtotal, business.currencySymbol),
+    ],
   ];
   if (totals.globalDiscountAmount > 0) {
     totalRows.push([
@@ -231,7 +234,7 @@ export function generateInvoicePdf({ business, doc, user }: PdfOptions): jsPDF {
     ]);
   }
   totalRows.push([
-    `Tax (${doc.taxRate}%)`,
+    `Tax (${doc.taxRate}%${doc.taxInclusive ? " incl." : ""})`,
     formatCurrency(totals.taxAmount, business.currencySymbol),
   ]);
 
@@ -259,6 +262,31 @@ export function generateInvoicePdf({ business, doc, user }: PdfOptions): jsPDF {
     { align: "right" },
   );
   afterTableY += 50;
+
+  // Deposit rows (only when a deposit percentage is set)
+  if ((doc.depositPercent ?? 0) > 0) {
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(10);
+    pdf.setTextColor(90, 90, 90);
+    pdf.text(`Deposit now (${doc.depositPercent}%)`, totalsX, afterTableY);
+    pdf.setTextColor(40, 40, 40);
+    pdf.text(
+      `- ${formatCurrency(totals.depositAmount, business.currencySymbol)}`,
+      totalsX + totalsW,
+      afterTableY,
+      { align: "right" },
+    );
+    afterTableY += 16;
+    pdf.setFont("helvetica", "bold");
+    pdf.text("Balance due", totalsX, afterTableY);
+    pdf.text(
+      formatCurrency(totals.balanceDue, business.currencySymbol),
+      totalsX + totalsW,
+      afterTableY,
+      { align: "right" },
+    );
+    afterTableY += 16;
+  }
 
   // ----- Payment info (invoice only + banking_details feature) -----
   const showBanking = isInvoice && (business.bankName || business.bankAccount);
