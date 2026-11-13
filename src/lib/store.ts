@@ -51,6 +51,8 @@ interface StoreState {
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   deleteAccount: () => Promise<void>;
+  requestPasswordReset: (email: string) => Promise<void>;
+  resetPassword: (password: string) => Promise<void>;
 
   // Data actions
   loadFromServer: () => Promise<void>;
@@ -201,6 +203,23 @@ export const useStore = create<StoreState>((set, get) => ({
       failedSaves.clear();
       businessSaveFailed = false;
     }
+  },
+
+  // Email a password reset link (always succeeds server-side to avoid
+  // revealing whether the account exists)
+  requestPasswordReset: async (email) => {
+    await apiFetch("/api/auth/forgot-password", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+  },
+
+  // Set a new password using the recovery-link session
+  resetPassword: async (password) => {
+    await apiFetch("/api/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify({ password }),
+    });
   },
 
   loadFromServer: async () => {

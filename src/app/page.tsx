@@ -59,9 +59,13 @@ export default function Home() {
 
   // Show the privacy notice once per browser, right after sign-in
   useEffect(() => {
-    if (authUser && !localStorage.getItem("tulkit-privacy-notice-v1")) {
-      setPrivacyNoticeOpen(true);
-    }
+    if (!authUser) return;
+    const t = setTimeout(() => {
+      if (!localStorage.getItem("tulkit-privacy-notice-v1")) {
+        setPrivacyNoticeOpen(true);
+      }
+    }, 0);
+    return () => clearTimeout(t);
   }, [authUser]);
 
   function handleNewDoc(type: "invoice" | "quote") {

@@ -9,7 +9,7 @@ import { Mail, Lock, ArrowRight, Eye, EyeOff, CheckCircle2, AlertCircle } from "
 import { useStore } from "@/lib/store";
 import { toast } from "@/hooks/use-toast";
 
-type Mode = "signin" | "signup";
+type Mode = "signin" | "signup" | "forgot";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -40,6 +40,7 @@ export function AuthForm() {
   const signUp = useStore((s) => s.signUp);
   const authLoading = useStore((s) => s.authLoading);
   const justSignedUp = useStore((s) => s.justSignedUp);
+  const requestPasswordReset = useStore((s) => s.requestPasswordReset);
 
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
@@ -97,6 +98,32 @@ export function AuthForm() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitError(null);
+
+    if (mode === "forgot") {
+      const newErrors: Record<string, string> = {};
+      validateEmail(newErrors);
+      setErrors(newErrors);
+      if (Object.keys(newErrors).length > 0) return;
+      try {
+        await requestPasswordReset(email.trim().toLowerCase());
+        toast({
+          title: "Check your email",
+          description:
+            "If an account exists for this address, a password reset link is on its way.",
+        });
+        setMode("signin");
+        setPassword("");
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Something went wrong. Please try again.";
+        setSubmitError(message);
+        toast({
+          title: "Could not send reset email",
+          description: message,
+          variant: "destructive",
+        });
+      }
+      return;
+    }
 
     const valid = mode === "signin" ? validateSignin() : validateSignup();
     if (!valid) {
@@ -235,12 +262,18 @@ export function AuthForm() {
         <Card className="shadow-lg border-0">
           <CardHeader className="space-y-1">
             <CardTitle className="text-xl">
-              {mode === "signin" ? "Welcome back" : "Create your account"}
+              {mode === "signin"
+                ? "Welcome back"
+                : mode === "forgot"
+                  ? "Reset your password"
+                  : "Create your account"}
             </CardTitle>
             <CardDescription>
               {mode === "signin"
                 ? "Sign in to access your invoices and quotes"
-                : "Start creating professional invoices in minutes"}
+                : mode === "forgot"
+                  ? "Enter your account email and we'll send you a reset link"
+                  : "Start creating professional invoices in minutes"}
             </CardDescription>
           </CardHeader>
 
@@ -280,40 +313,57 @@ export function AuthForm() {
                 {errors.email && <p id="email-error" className="text-xs text-red-600">{errors.email}</p>}
               </div>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="password">Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(event) => {
-                      setPassword(event.target.value);
-                      if (errors.password) setErrors({ ...errors, password: "" });
-                    }}
-                    className={`pl-9 pr-9 ${errors.password ? "border-red-400" : ""}`}
-                    autoComplete={mode === "signin" ? "current-password" : "new-password"}
-                    aria-invalid={Boolean(errors.password)}
-                    aria-describedby={errors.password ? "password-error" : mode === "signup" ? "password-hint" : undefined}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    aria-label={showPassword ? "Hide password" : "Show password"}
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
+              {mode !== "forgot" && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="password">Password</Label>
+                    {mode === "signin" && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMode("forgot");
+                          setErrors({});
+                          setSubmitError(null);
+                        }}
+                        className="text-xs text-[#0E7C9C] hover:underline font-medium"
+                      >
+                        Forgot password?
+                      </button>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(event) => {
+                        setPassword(event.target.value);
+                        if (errors.password) setErrors({ ...errors, password: "" });
+                      }}
+                      className={`pl-9 pr-9 ${errors.password ? "border-red-400" : ""}`}
+                      autoComplete={mode === "signin" ? "current-password" : "new-password"}
+                      aria-invalid={Boolean(errors.password)}
+                      aria-describedby={errors.password ? "password-error" : mode === "signup" ? "password-hint" : undefined}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  {errors.password && <p id="password-error" className="text-xs text-red-600">{errors.password}</p>}
+                  {mode === "signup" && !errors.password && (
+                    <p id="password-hint" className="text-xs text-muted-foreground">
+                      At least 8 characters, including uppercase, lowercase, and a number.
+                    </p>
+                  )}
                 </div>
-                {errors.password && <p id="password-error" className="text-xs text-red-600">{errors.password}</p>}
-                {mode === "signup" && !errors.password && (
-                  <p id="password-hint" className="text-xs text-muted-foreground">
-                    At least 8 characters, including uppercase, lowercase, and a number.
-                  </p>
-                )}
-              </div>
+              )}
 
               {mode === "signup" && (
                 <div className="space-y-1.5">
@@ -348,7 +398,11 @@ export function AuthForm() {
               >
                 {authLoading ? "Please wait..." : (
                   <>
-                    {mode === "signin" ? "Sign in" : "Create account"}
+                    {mode === "signin"
+                      ? "Sign in"
+                      : mode === "forgot"
+                        ? "Send reset link"
+                        : "Create account"}
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </>
                 )}
@@ -373,7 +427,7 @@ export function AuthForm() {
                 </>
               ) : (
                 <>
-                  Already have an account?{" "}
+                  {mode === "forgot" ? "Remembered it?" : "Already have an account?"}{" "}
                   <button
                     type="button"
                     onClick={() => {
