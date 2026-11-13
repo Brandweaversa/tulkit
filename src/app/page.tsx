@@ -21,6 +21,7 @@ import { AdminDashboard } from "@/components/admin-dashboard";
 import { SubscriptionBanner } from "@/components/subscription-banner";
 import { AuthForm } from "@/components/auth/auth-form";
 import { PrivacyNoticeDialog } from "@/components/privacy-notice-dialog";
+import { AdminNotifications } from "@/components/admin-notifications";
 import {
   Dialog,
   DialogContent,
@@ -167,6 +168,8 @@ export default function Home() {
                     <span className="ml-1.5 hidden sm:inline">{item.label}</span>
                   </Button>
                 ))}
+              {/* Admin notifications bell */}
+              {isAdmin && <AdminNotifications />}
               {/* Account menu */}
               <div className="ml-2 pl-2 border-l flex items-center gap-2">
                 <div className="hidden sm:block text-right max-w-[180px]">

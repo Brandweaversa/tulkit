@@ -76,7 +76,7 @@ interface StoreState {
   flushPendingSave: (docId: string) => Promise<void>;
 }
 
-async function apiFetch(path: string, options?: RequestInit) {
+export async function apiFetch(path: string, options?: RequestInit) {
   const res = await fetch(path, {
     ...options,
     headers: { "Content-Type": "application/json", ...(options?.headers ?? {}) },
