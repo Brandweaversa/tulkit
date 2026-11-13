@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard,
@@ -19,6 +20,7 @@ import { BusinessSettings } from "@/components/business-settings";
 import { AdminDashboard } from "@/components/admin-dashboard";
 import { SubscriptionBanner } from "@/components/subscription-banner";
 import { AuthForm } from "@/components/auth/auth-form";
+import { PrivacyNoticeDialog } from "@/components/privacy-notice-dialog";
 import {
   Dialog,
   DialogContent,
@@ -35,6 +37,7 @@ export default function Home() {
   const [editingDocId, setEditingDocId] = useState<string | null>(null);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [clientFilter, setClientFilter] = useState<string | null>(null);
+  const [privacyNoticeOpen, setPrivacyNoticeOpen] = useState(false);
 
   const authUser = useStore((s) => s.authUser);
   const authLoading = useStore((s) => s.authLoading);
@@ -52,6 +55,13 @@ export default function Home() {
       loadFromServer();
     }
   }, [authUser, loadFromServer]);
+
+  // Show the privacy notice once per browser, right after sign-in
+  useEffect(() => {
+    if (authUser && !localStorage.getItem("tulkit-privacy-notice-v1")) {
+      setPrivacyNoticeOpen(true);
+    }
+  }, [authUser]);
 
   function handleNewDoc(type: "invoice" | "quote") {
     createDocument(type).then((doc) => {
@@ -223,12 +233,29 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="border-t bg-background">
-        <div className="max-w-none w-full mx-auto px-4 py-4 text-center space-y-1">
+        <div className="max-w-none w-full mx-auto px-4 py-4 text-center space-y-2">
           <div className="text-xs text-muted-foreground">
             Tulkit · Invoices &amp; Quotes made easy
           </div>
+          <nav
+            aria-label="Legal"
+            className="flex items-center justify-center gap-4 text-[11px]"
+          >
+            <Link
+              href="/legal/terms"
+              className="text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+            >
+              Terms &amp; Conditions
+            </Link>
+            <Link
+              href="/legal/privacy"
+              className="text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+            >
+              Privacy Policy
+            </Link>
+          </nav>
           <div className="text-[11px] text-muted-foreground/80">
-            Powered by{" "}
+            Tulkit is a product of BrandweaverSA (Pty) Ltd. Powered by{" "}
             <a
               href="https://brandweaver.co.za"
               target="_blank"
@@ -240,6 +267,15 @@ export default function Home() {
           </div>
         </div>
       </footer>
+
+      {/* First-time privacy notice */}
+      <PrivacyNoticeDialog
+        open={privacyNoticeOpen}
+        onAcknowledge={() => {
+          localStorage.setItem("tulkit-privacy-notice-v1", new Date().toISOString());
+          setPrivacyNoticeOpen(false);
+        }}
+      />
 
       {/* Upgrade dialog */}
       <Dialog open={upgradeOpen} onOpenChange={setUpgradeOpen}>
