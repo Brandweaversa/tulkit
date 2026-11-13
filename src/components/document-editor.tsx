@@ -367,13 +367,24 @@ export function DocumentEditor({ docId, onBack }: Props) {
                       <span className="text-xs text-muted-foreground pt-2.5 w-5 shrink-0">
                         {idx + 1}.
                       </span>
-                      <Input
-                        placeholder="Item description"
+                      {/* Multiline: item name on line 1, optional description on
+                          the lines below. One row by default, grows as they type. */}
+                      <Textarea
+                        placeholder={"Item name\nOptional description below"}
                         value={it.description}
-                        onChange={(e) =>
-                          updateItem(doc.id, it.id, { description: e.target.value })
-                        }
-                        className="flex-1 min-w-0"
+                        rows={1}
+                        onChange={(e) => {
+                          updateItem(doc.id, it.id, { description: e.target.value });
+                          e.target.style.height = "auto";
+                          e.target.style.height = `${e.target.scrollHeight}px`;
+                        }}
+                        ref={(el) => {
+                          if (el) {
+                            el.style.height = "auto";
+                            el.style.height = `${el.scrollHeight}px`;
+                          }
+                        }}
+                        className="flex-1 min-w-0 resize-none min-h-[38px] py-2"
                       />
                       <Button
                         variant="ghost"

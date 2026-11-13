@@ -113,13 +113,25 @@ export function InvoicePreview({ business, doc, showWatermark }: Props) {
               {doc.items.map((it, i) => {
                 const gross = it.quantity * it.unitPrice;
                 const net = gross * (1 - (it.discountPercent ?? 0) / 100);
+                const [firstLine, ...descLines] = (it.description || "").split("\n");
                 return (
                   <tr
                     key={it.id}
                     className={i % 2 === 0 ? "bg-neutral-50" : "bg-white"}
                   >
                     <td className="px-3 py-2 text-neutral-700 break-words">
-                      {it.description || (
+                      {it.description ? (
+                        <>
+                          <span className="font-medium text-neutral-900">
+                            {firstLine}
+                          </span>
+                          {descLines.length > 0 && (
+                            <span className="mt-0.5 block whitespace-pre-line text-xs leading-snug text-neutral-500">
+                              {descLines.join("\n")}
+                            </span>
+                          )}
+                        </>
+                      ) : (
                         <span className="text-neutral-400 italic">(empty)</span>
                       )}
                     </td>

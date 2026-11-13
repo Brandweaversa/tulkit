@@ -179,6 +179,10 @@ export function generateInvoicePdf({ business, doc, user }: PdfOptions): jsPDF {
 
   // ----- Items table -----
   const tableStartY = clientTextY + 16;
+  // Description column takes what's left of the content width after the four
+  // fixed-width numeric columns (same result as "auto", but deterministic —
+  // we need it for wrapping text inside the custom cell renderer below).
+  const itemNameWidth = pageW - margin * 2 - (50 + 80 + 50 + 90);
   autoTable(pdf, {
     startY: tableStartY,
     margin: { left: margin, right: margin },
@@ -207,11 +211,113 @@ export function generateInvoicePdf({ business, doc, user }: PdfOptions): jsPDF {
     },
     alternateRowStyles: { fillColor: [248, 250, 252] },
     columnStyles: {
-      0: { cellWidth: "auto" },
+      0: { cellWidth: itemNameWidth },
       1: { cellWidth: 50, halign: "right" },
       2: { cellWidth: 80, halign: "right" },
       3: { cellWidth: 50, halign: "right" },
       4: { cellWidth: 90, halign: "right" },
+    },
+    // Multiline item description: line 1 is the item name (bold), any further
+    // lines render as a smaller grey description under it. Default autotable
+    // text is skipped for this column and drawn manually so both styles can
+    // live in one cell.
+    didParseCell: (data) => {
+      if (data.section !== "body" || data.column.index !== 0) return;
+      const item = doc.items[data.row.index];
+      const raw = (item?.description ?? "").trimEnd() || "—";
+      const rawLines = raw.split("\n");
+      const cell = data.cell;
+      const pad = {
+        left: cell.padding("left"),
+        right: cell.padding("right"),
+        top: cell.padding("top"),
+        bottom: cell.padding("bottom"),
+      };
+      const innerW = itemNameWidth - pad.left - pad.right;
+      const nameSize = cell.styles.fontSize;
+      const descSize = Math.max(nameSize - 1.5, 8);
+      pdf.setFontSize(nameSize);
+      const nameLines = pdf.splitTextToSize(rawLines[0] || "—", innerW) as string[];
+      pdf.setFontSize(descSize);
+      const descLines =
+        rawLines.length > 1
+          ? (rawLines
+              .slice(1)
+              .flatMap((l) => pdf.splitTextToSize(l || " ", innerW)) as string[])
+          : [];
+      const lhName = nameSize * 1.15;
+      const lhDesc = descSize * 1.15;
+      const gap = descLines.length > 0 ? 3 : 0;
+      const needed =
+        pad.top +
+        nameLines.length * lhName +
+        gap +
+        descLines.length * lhDesc +
+        pad.bottom;
+      cell.styles.minCellHeight = Math.max(cell.styles.minCellHeight || 0, needed);
+      // Skip autotable's own text rendering for this cell — didDrawCell below
+      // draws the name and description with their own styles instead.
+      cell.text = [];
+      (cell as unknown as { __itemLines?: object }).__itemLines = {
+        nameLines,
+        descLines,
+        nameSize,
+        descSize,
+        lhName,
+        lhDesc,
+        gap,
+      };
+    },
+    didDrawCell: (data) => {
+      if (data.section !== "body" || data.column.index !== 0) return;
+      const meta = (
+        data.cell as unknown as {
+          __itemLines?: {
+            nameLines: string[];
+            descLines: string[];
+            nameSize: number;
+            descSize: number;
+            lhName: number;
+            lhDesc: number;
+            gap: number;
+          };
+        }
+      ).__itemLines;
+      if (!meta) return;
+      const c = data.cell;
+      const pad = {
+        left: c.padding("left"),
+        right: c.padding("right"),
+        top: c.padding("top"),
+        bottom: c.padding("bottom"),
+      };
+      const x = c.x + pad.left;
+      // Item name — bold
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(meta.nameSize);
+      pdf.setTextColor(40, 40, 40);
+      meta.nameLines.forEach((line, i) => {
+        pdf.text(
+          line,
+          x,
+          c.y + pad.top + meta.nameSize * 0.8 + i * meta.lhName
+        );
+      });
+      // Description — smaller, grey
+      if (meta.descLines.length > 0) {
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(meta.descSize);
+        pdf.setTextColor(110, 110, 110);
+        const descY0 =
+          c.y +
+          pad.top +
+          meta.nameLines.length * meta.lhName +
+          meta.gap +
+          meta.descSize * 0.8;
+        meta.descLines.forEach((line, i) => {
+          pdf.text(line, x, descY0 + i * meta.lhDesc);
+        });
+      }
     },
   });
 
