@@ -50,6 +50,7 @@ interface StoreState {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
 
   // Data actions
   loadFromServer: () => Promise<void>;
@@ -165,6 +166,31 @@ export const useStore = create<StoreState>((set, get) => ({
     try {
       await apiFetch("/api/auth/signout", { method: "POST" });
     } finally {
+      set({
+        authUser: null,
+        business: { ...DEFAULT_BUSINESS },
+        clients: [],
+        documents: [],
+        justSignedUp: false,
+      });
+      failedSaves.clear();
+      businessSaveFailed = false;
+    }
+  },
+
+  // Permanently delete the account + all data, then reset local state
+  deleteAccount: async () => {
+    // Drop any pending saves — the account is going away
+    saveTimers.forEach((t) => clearTimeout(t));
+    saveTimers.clear();
+    if (businessSaveTimer) {
+      clearTimeout(businessSaveTimer);
+      businessSaveTimer = null;
+    }
+    try {
+      await apiFetch("/api/account", { method: "DELETE" });
+    } finally {
+      // Clear state regardless — the login is gone server-side
       set({
         authUser: null,
         business: { ...DEFAULT_BUSINESS },

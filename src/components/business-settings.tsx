@@ -6,10 +6,21 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CURRENCY_OPTIONS } from "@/lib/format";
 import { useStore } from "@/lib/store";
-import { Upload, Trash2, Save, Check, RefreshCw } from "lucide-react";
+import { Upload, Trash2, Save, Check, RefreshCw, AlertTriangle } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { can } from "@/lib/features";
 
@@ -21,6 +32,11 @@ export function BusinessSettings() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const deleteAccount = useStore((s) => s.deleteAccount);
+
+  const isRegularUser = authUser !== null && authUser.role !== "admin";
 
   const userCtx = authUser
     ? {
@@ -103,6 +119,27 @@ export function BusinessSettings() {
       toast({ title: "Save failed", description: "Please try again.", variant: "destructive" });
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleDeleteAccount() {
+    setDeleting(true);
+    try {
+      await deleteAccount();
+      toast({
+        title: "Account deleted",
+        description:
+          "Your account and all associated data have been permanently deleted.",
+      });
+    } catch (e) {
+      toast({
+        title: "Could not delete account",
+        description:
+          e instanceof Error ? e.message : "Please try again in a moment.",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -366,6 +403,69 @@ export function BusinessSettings() {
           )}
         </Button>
       </div>
+
+      {/* Danger zone — self-service account deletion (non-admin users only) */}
+      {isRegularUser && (
+        <Card className="border-red-200 dark:border-red-900">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-red-700 dark:text-red-400">
+              <AlertTriangle className="h-4 w-4" />
+              Danger zone
+            </CardTitle>
+            <CardDescription>
+              Irreversible actions for your account.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-md border border-red-200 dark:border-red-900 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1 min-w-0">
+                <div className="font-semibold text-sm">Delete your account</div>
+                <p className="text-sm text-muted-foreground">
+                  This action cannot be undone. This will permanently delete
+                  your account and all associated data.
+                </p>
+              </div>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="destructive"
+                    className="bg-red-600 hover:bg-red-700 text-white shrink-0"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete account
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete your account?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This action cannot be undone. This will permanently
+                      delete your account and all associated data — including
+                      all invoices, quotes, clients, and your business
+                      profile. Your login will also be removed.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel disabled={deleting}>
+                      Cancel
+                    </AlertDialogCancel>
+                    <AlertDialogAction
+                      disabled={deleting}
+                      className="bg-red-600 hover:bg-red-700 text-white"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleDeleteAccount();
+                      }}
+                    >
+                      {deleting ? "Deleting..." : "Yes, delete everything"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
