@@ -1,0 +1,223 @@
+From 3f42ad50725e22c6f6bb8167b9032dfaeb537883 Mon Sep 17 00:00:00 2001
+From: BrandweaverSA <dev@brandweaversa.co.za>
+Date: Fri, 13 Nov 2026 15:38:48 +0000
+Subject: [PATCH] Support multiline item descriptions on invoices and quotes
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- Line item description field is now an auto-growing textarea: line 1 is
+  the item name, further lines act as a description (no DB change — the
+  field was already free text).
+- On-screen preview shows the name in medium weight with the description
+  in smaller grey text underneath (whitespace preserved).
+- PDF export renders the first line bold with remaining lines in a
+  smaller grey font inside the same table cell; row heights account for
+  wrapped lines.
+- Applies to both invoices and quotations (shared editor/preview).
+---
+ src/components/document-editor.tsx |  23 ++++--
+ src/components/invoice-preview.tsx |  14 +++-
+ src/lib/pdf.ts                     | 108 ++++++++++++++++++++++++++++-
+ 3 files changed, 137 insertions(+), 8 deletions(-)
+
+diff --git a/src/components/document-editor.tsx b/src/components/document-editor.tsx
+index 6694cb2..43cca54 100644
+--- a/src/components/document-editor.tsx
++++ b/src/components/document-editor.tsx
+@@ -367,13 +367,24 @@ export function DocumentEditor({ docId, onBack }: Props) {
+                       <span className="text-xs text-muted-foreground pt-2.5 w-5 shrink-0">
+                         {idx + 1}.
+                       </span>
+-                      <Input
+-                        placeholder="Item description"
++                      {/* Multiline: item name on line 1, optional description on
++                          the lines below. One row by default, grows as they type. */}
++                      <Textarea
++                        placeholder={"Item name\nOptional description below"}
+                         value={it.description}
+-                        onChange={(e) =>
+-                          updateItem(doc.id, it.id, { description: e.target.value })
+-                        }
+-                        className="flex-1 min-w-0"
++                        rows={1}
++                        onChange={(e) => {
++                          updateItem(doc.id, it.id, { description: e.target.value });
++                          e.target.style.height = "auto";
++                          e.target.style.height = `${e.target.scrollHeight}px`;
++                        }}
++                        ref={(el) => {
++                          if (el) {
++                            el.style.height = "auto";
++                            el.style.height = `${el.scrollHeight}px`;
++                          }
++                        }}
++                        className="flex-1 min-w-0 resize-none min-h-[38px] py-2"
+                       />
+                       <Button
+                         variant="ghost"
+diff --git a/src/components/invoice-preview.tsx b/src/components/invoice-preview.tsx
+index f2f4847..e19584b 100644
+--- a/src/components/invoice-preview.tsx
++++ b/src/components/invoice-preview.tsx
+@@ -113,13 +113,25 @@ export function InvoicePreview({ business, doc, showWatermark }: Props) {
+               {doc.items.map((it, i) => {
+                 const gross = it.quantity * it.unitPrice;
+                 const net = gross * (1 - (it.discountPercent ?? 0) / 100);
++                const [firstLine, ...descLines] = (it.description || "").split("\n");
+                 return (
+                   <tr
+                     key={it.id}
+                     className={i % 2 === 0 ? "bg-neutral-50" : "bg-white"}
+                   >
+                     <td className="px-3 py-2 text-neutral-700 break-words">
+-                      {it.description || (
++                      {it.description ? (
++                        <>
++                          <span className="font-medium text-neutral-900">
++                            {firstLine}
++                          </span>
++                          {descLines.length > 0 && (
++                            <span className="mt-0.5 block whitespace-pre-line text-xs leading-snug text-neutral-500">
++                              {descLines.join("\n")}
++                            </span>
++                          )}
++                        </>
++                      ) : (
+                         <span className="text-neutral-400 italic">(empty)</span>
+                       )}
+                     </td>
+diff --git a/src/lib/pdf.ts b/src/lib/pdf.ts
+index 7112061..5f04915 100644
+--- a/src/lib/pdf.ts
++++ b/src/lib/pdf.ts
+@@ -179,6 +179,10 @@ export function generateInvoicePdf({ business, doc, user }: PdfOptions): jsPDF {
+ 
+   // ----- Items table -----
+   const tableStartY = clientTextY + 16;
++  // Description column takes what's left of the content width after the four
++  // fixed-width numeric columns (same result as "auto", but deterministic —
++  // we need it for wrapping text inside the custom cell renderer below).
++  const itemNameWidth = pageW - margin * 2 - (50 + 80 + 50 + 90);
+   autoTable(pdf, {
+     startY: tableStartY,
+     margin: { left: margin, right: margin },
+@@ -207,12 +211,114 @@ export function generateInvoicePdf({ business, doc, user }: PdfOptions): jsPDF {
+     },
+     alternateRowStyles: { fillColor: [248, 250, 252] },
+     columnStyles: {
+-      0: { cellWidth: "auto" },
++      0: { cellWidth: itemNameWidth },
+       1: { cellWidth: 50, halign: "right" },
+       2: { cellWidth: 80, halign: "right" },
+       3: { cellWidth: 50, halign: "right" },
+       4: { cellWidth: 90, halign: "right" },
+     },
++    // Multiline item description: line 1 is the item name (bold), any further
++    // lines render as a smaller grey description under it. Default autotable
++    // text is skipped for this column and drawn manually so both styles can
++    // live in one cell.
++    didParseCell: (data) => {
++      if (data.section !== "body" || data.column.index !== 0) return;
++      const item = doc.items[data.row.index];
++      const raw = (item?.description ?? "").trimEnd() || "—";
++      const rawLines = raw.split("\n");
++      const cell = data.cell;
++      const pad = {
++        left: cell.padding("left"),
++        right: cell.padding("right"),
++        top: cell.padding("top"),
++        bottom: cell.padding("bottom"),
++      };
++      const innerW = itemNameWidth - pad.left - pad.right;
++      const nameSize = cell.styles.fontSize;
++      const descSize = Math.max(nameSize - 1.5, 8);
++      pdf.setFontSize(nameSize);
++      const nameLines = pdf.splitTextToSize(rawLines[0] || "—", innerW) as string[];
++      pdf.setFontSize(descSize);
++      const descLines =
++        rawLines.length > 1
++          ? (rawLines
++              .slice(1)
++              .flatMap((l) => pdf.splitTextToSize(l || " ", innerW)) as string[])
++          : [];
++      const lhName = nameSize * 1.15;
++      const lhDesc = descSize * 1.15;
++      const gap = descLines.length > 0 ? 3 : 0;
++      const needed =
++        pad.top +
++        nameLines.length * lhName +
++        gap +
++        descLines.length * lhDesc +
++        pad.bottom;
++      cell.styles.minCellHeight = Math.max(cell.styles.minCellHeight || 0, needed);
++      // Skip autotable's own text rendering for this cell — didDrawCell below
++      // draws the name and description with their own styles instead.
++      cell.text = [];
++      (cell as unknown as { __itemLines?: object }).__itemLines = {
++        nameLines,
++        descLines,
++        nameSize,
++        descSize,
++        lhName,
++        lhDesc,
++        gap,
++      };
++    },
++    didDrawCell: (data) => {
++      if (data.section !== "body" || data.column.index !== 0) return;
++      const meta = (
++        data.cell as unknown as {
++          __itemLines?: {
++            nameLines: string[];
++            descLines: string[];
++            nameSize: number;
++            descSize: number;
++            lhName: number;
++            lhDesc: number;
++            gap: number;
++          };
++        }
++      ).__itemLines;
++      if (!meta) return;
++      const c = data.cell;
++      const pad = {
++        left: c.padding("left"),
++        right: c.padding("right"),
++        top: c.padding("top"),
++        bottom: c.padding("bottom"),
++      };
++      const x = c.x + pad.left;
++      // Item name — bold
++      pdf.setFont("helvetica", "bold");
++      pdf.setFontSize(meta.nameSize);
++      pdf.setTextColor(40, 40, 40);
++      meta.nameLines.forEach((line, i) => {
++        pdf.text(
++          line,
++          x,
++          c.y + pad.top + meta.nameSize * 0.8 + i * meta.lhName
++        );
++      });
++      // Description — smaller, grey
++      if (meta.descLines.length > 0) {
++        pdf.setFont("helvetica", "normal");
++        pdf.setFontSize(meta.descSize);
++        pdf.setTextColor(110, 110, 110);
++        const descY0 =
++          c.y +
++          pad.top +
++          meta.nameLines.length * meta.lhName +
++          meta.gap +
++          meta.descSize * 0.8;
++        meta.descLines.forEach((line, i) => {
++          pdf.text(line, x, descY0 + i * meta.lhDesc);
++        });
++      }
++    },
+   });
+ 
+   // ----- Totals -----
+-- 
+2.47.3
+
