@@ -61,6 +61,18 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
+        {/* Capture `beforeinstallprompt` BEFORE React hydrates. On cold loads
+            (e.g. a returning user landing on the login screen, service worker
+            already active) the event fires during initial page load — before
+            any useEffect listener exists — and is lost forever. This inline
+            script runs at HTML parse time: it stashes the event on window and
+            re-dispatches it, so InstallBanner can pick it up when it mounts. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              '(function(){var c=function(e){e.preventDefault();window.__tulkitBip=e;try{window.dispatchEvent(new CustomEvent("tulkit:bip",{detail:e}))}catch(_){}};window.addEventListener("beforeinstallprompt",c)})();',
+          }}
+        />
         {children}
         <Toaster />
         <PwaRegister />

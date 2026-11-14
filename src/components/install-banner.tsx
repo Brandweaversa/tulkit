@@ -9,6 +9,13 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 }
 
+declare global {
+  interface Window {
+    /** Captured by the inline script in layout.tsx before React hydrates. */
+    __tulkitBip?: BeforeInstallPromptEvent;
+  }
+}
+
 const DISMISS_KEY = "tulkit-install-banner-dismissed";
 
 /**
@@ -26,18 +33,36 @@ export function InstallBanner() {
     if (window.localStorage.getItem(DISMISS_KEY)) return;
     setDismissed(false);
 
+    // The event usually fires before React hydrates (cold load with an
+    // active service worker — typical on the login screen), so the live
+    // listener below would miss it. The inline capture script in layout.tsx
+    // stashed it; pick it up here.
+    if (window.__tulkitBip) {
+      setPromptEvent(window.__tulkitBip);
+    }
+
     const onPrompt = (event: Event) => {
       event.preventDefault(); // take over from the browser UI
       setPromptEvent(event as BeforeInstallPromptEvent);
+    };
+    // Re-dispatched by the capture script — covers an event that fired
+    // between parse time and this effect running.
+    const onRedispatch = (event: Event) => {
+      const detail = (event as CustomEvent).detail as
+        | BeforeInstallPromptEvent
+        | undefined;
+      if (detail) setPromptEvent(detail);
     };
     const onInstalled = () => {
       setPromptEvent(null);
       setDismissed(true);
     };
     window.addEventListener("beforeinstallprompt", onPrompt);
+    window.addEventListener("tulkit:bip", onRedispatch);
     window.addEventListener("appinstalled", onInstalled);
     return () => {
       window.removeEventListener("beforeinstallprompt", onPrompt);
+      window.removeEventListener("tulkit:bip", onRedispatch);
       window.removeEventListener("appinstalled", onInstalled);
     };
   }, []);
