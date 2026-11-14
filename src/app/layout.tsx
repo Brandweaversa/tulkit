@@ -1,7 +1,8 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist_Mono, Inter } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
+import { PwaRegister } from "@/components/pwa-register";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -13,14 +14,29 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+export const viewport: Viewport = {
+  // Browser chrome / splash tint — matches the PWA icon brand colour
+  themeColor: "#F58634",
+};
+
 export const metadata: Metadata = {
   title: "Tulkit — Invoices & Quotes Made Easy",
   description: "Tulkit helps freelancers and small businesses create invoices and quotes, generate PDFs, and share via WhatsApp or email.",
   keywords: ["Tulkit", "invoice", "quote", "PDF", "WhatsApp", "email", "freelancer", "small business", "South Africa"],
   authors: [{ name: "Brandweaver" }],
+  applicationName: "Tulkit",
+  manifest: "/manifest.webmanifest",
   icons: {
-    icon: "/tulkit-icon-main.png",
-    apple: "/tulkit-icon-main.png",
+    icon: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: "/icons/apple-touch-icon.png",
+  },
+  appleWebApp: {
+    capable: true,
+    title: "Tulkit",
+    statusBarStyle: "default",
   },
   openGraph: {
     title: "Tulkit — Invoices & Quotes Made Easy",
@@ -46,6 +62,7 @@ export default function RootLayout({
       >
         {children}
         <Toaster />
+        <PwaRegister />
       </body>
     </html>
   );
