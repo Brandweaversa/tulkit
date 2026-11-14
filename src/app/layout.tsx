@@ -3,6 +3,7 @@ import { Geist_Mono, Inter } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { PwaRegister } from "@/components/pwa-register";
+import { InstallBanner } from "@/components/install-banner";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -63,6 +64,7 @@ export default function RootLayout({
         {children}
         <Toaster />
         <PwaRegister />
+        <InstallBanner />
       </body>
     </html>
   );
