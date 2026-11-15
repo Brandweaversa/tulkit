@@ -232,6 +232,18 @@ export function ShareDialog({
       const text = activeMode === "reminder" ? editedReminder : editedMessage;
       const title =
         activeMode === "reminder" ? editedReminderSubject : editedSubject;
+      // WhatsApp drops share-sheet text when files are attached, so bridge
+      // the message via the clipboard — WhatsApp offers a Paste hint in the
+      // chat as soon as it opens.
+      try {
+        await navigator.clipboard.writeText(text);
+        toast({
+          title: "Message copied",
+          description: "Tap Paste in WhatsApp to add it to the chat.",
+        });
+      } catch {
+        // Clipboard unavailable — the user can still copy via "Copy summary".
+      }
       try {
         await navigator.share({ files: [pdfFile], title, text });
         if (doc.status === "draft") markAs(doc.id, "sent");
@@ -484,11 +496,14 @@ export function ShareDialog({
                       <MessageCircle className="h-4 w-4 mr-2" /> Open chat without PDF
                     </Button>
                     <p className="text-xs text-muted-foreground">
-                      The share sheet opens with the PDF attached — pick
-                      WhatsApp, then the client&apos;s chat. &ldquo;Open chat
-                      without PDF&rdquo; jumps straight to{" "}
-                      {editedPhone || "the client"} instead, but WhatsApp can&apos;t
-                      receive attachments through a chat link.
+                      The share sheet opens with the PDF attached and your
+                      message copied — pick WhatsApp, then the client&apos;s
+                      chat, and tap <strong>Paste</strong> to add the message
+                      (WhatsApp can&apos;t receive text through the share
+                      sheet, only files). &ldquo;Open chat without PDF&rdquo;
+                      jumps straight to {editedPhone || "the client"} with the
+                      message pre-filled instead, but then you attach the PDF
+                      by hand.
                     </p>
                   </>
                 ) : (
