@@ -1,7 +1,7 @@
 import { jsPDF, GState } from "jspdf";
 import autoTable from "jspdf-autotable";
 import type { BusinessProfile, InvoiceDocument } from "./types";
-import { computeTotals, displayWebsite, formatCurrency, formatDate, websiteHref } from "./format";
+import { computeTotals, displayWebsite, docHasTax, formatCurrency, formatDate, websiteHref } from "./format";
 import { can } from "./features";
 
 interface PdfOptions {
@@ -388,7 +388,7 @@ export function generateInvoicePdf({ business, doc, user }: PdfOptions): jsPDF {
 
   const totalRows: [string, string][] = [
     [
-      doc.taxInclusive ? "Subtotal (incl. tax)" : "Subtotal",
+      doc.taxInclusive && docHasTax(doc) ? "Subtotal (incl. tax)" : "Subtotal",
       formatCurrency(totals.subtotal, business.currencySymbol),
     ],
   ];
@@ -398,10 +398,13 @@ export function generateInvoicePdf({ business, doc, user }: PdfOptions): jsPDF {
       `- ${formatCurrency(totals.globalDiscountAmount, business.currencySymbol)}`,
     ]);
   }
-  totalRows.push([
-    `Tax (${doc.taxRate}%${doc.taxInclusive ? " incl." : ""})`,
-    formatCurrency(totals.taxAmount, business.currencySymbol),
-  ]);
+  // No tax rate (cleared field) — no Tax row on the PDF at all.
+  if (docHasTax(doc)) {
+    totalRows.push([
+      `Tax (${doc.taxRate}%${doc.taxInclusive ? " incl." : ""})`,
+      formatCurrency(totals.taxAmount, business.currencySymbol),
+    ]);
+  }
 
   totalRows.forEach(([label, value]) => {
     pdf.setFont("helvetica", "normal");

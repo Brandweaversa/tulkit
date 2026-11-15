@@ -79,6 +79,17 @@ export function isQuoteExpired(
   );
 }
 
+// Does this document carry tax? A cleared (null/non-finite) rate means no tax
+// at all — the Tax row disappears from the preview, PDF and share texts.
+// An explicit 0 still counts as tax (shown at 0.00, e.g. zero-rated items).
+export function docHasTax(doc: { taxRate: number | null | undefined }): boolean {
+  return (
+    doc.taxRate !== null &&
+    doc.taxRate !== undefined &&
+    Number.isFinite(doc.taxRate)
+  );
+}
+
 // Compute the line subtotal after the per-line discount.
 export function lineSubtotal(item: LineItem): number {
   const gross = item.quantity * item.unitPrice;
@@ -107,18 +118,24 @@ export function computeTotals(doc: InvoiceDocument): DocumentTotals {
   const globalDiscountAmount = subtotal * (doc.globalDiscountPercent / 100);
   const afterDiscounts = subtotal - globalDiscountAmount;
 
+  const rate = doc.taxRate;
   let taxableBase: number;
   let taxAmount: number;
   let total: number;
-  if (doc.taxInclusive) {
+  if (rate === null || rate === undefined || !Number.isFinite(rate)) {
+    // No tax on this document — total is simply the discounted subtotal.
+    taxableBase = afterDiscounts;
+    taxAmount = 0;
+    total = afterDiscounts;
+  } else if (doc.taxInclusive) {
     // Prices already include tax — extract it instead of adding it.
     // e.g. R115 at 15%: tax = 115 - (115 / 1.15) = 15, base = 100.
     total = afterDiscounts;
-    taxableBase = total / (1 + doc.taxRate / 100);
+    taxableBase = total / (1 + rate / 100);
     taxAmount = total - taxableBase;
   } else {
     taxableBase = afterDiscounts;
-    taxAmount = taxableBase * (doc.taxRate / 100);
+    taxAmount = taxableBase * (rate / 100);
     total = taxableBase + taxAmount;
   }
 

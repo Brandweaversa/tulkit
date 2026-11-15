@@ -25,6 +25,7 @@ import {
 import { useStore } from "@/lib/store";
 import {
   computeTotals,
+  docHasTax,
   effectiveStatus,
   formatCurrency,
   statusColor,
@@ -465,11 +466,22 @@ export function DocumentEditor({ docId, onBack }: Props) {
                   <Input
                     type="number"
                     step="0.01"
-                    value={doc.taxRate}
-                    onChange={(e) =>
-                      updateDoc(doc.id, { taxRate: Number(e.target.value) || 0 })
-                    }
+                    value={doc.taxRate ?? ""}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      // Clearing the field removes tax entirely — the Tax row
+                      // disappears from the preview and the PDF.
+                      updateDoc(doc.id, {
+                        taxRate:
+                          raw === "" || !Number.isFinite(Number(raw))
+                            ? null
+                            : Number(raw),
+                      });
+                    }}
                   />
+                  <p className="text-[10px] text-muted-foreground">
+                    Leave empty for no tax — the Tax row disappears.
+                  </p>
                 </div>
                 <div className="space-y-1.5">
                   <Label>Global discount (%)</Label>
@@ -505,19 +517,21 @@ export function DocumentEditor({ docId, onBack }: Props) {
                   </p>
                 </div>
               </div>
-              <div className="flex items-center justify-between rounded-md border p-3">
-                <div className="pr-3">
-                  <Label className="text-sm">Prices include tax</Label>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Turn on if your unit prices already include VAT — the tax is
-                    extracted from the total instead of added on top.
-                  </p>
+              {docHasTax(doc) && (
+                <div className="flex items-center justify-between rounded-md border p-3">
+                  <div className="pr-3">
+                    <Label className="text-sm">Prices include tax</Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Turn on if your unit prices already include VAT — the tax is
+                      extracted from the total instead of added on top.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={doc.taxInclusive ?? false}
+                    onCheckedChange={(v) => updateDoc(doc.id, { taxInclusive: v })}
+                  />
                 </div>
-                <Switch
-                  checked={doc.taxInclusive ?? false}
-                  onCheckedChange={(v) => updateDoc(doc.id, { taxInclusive: v })}
-                />
-              </div>
+              )}
               <div className="space-y-1.5">
                 <Label>Payment terms</Label>
                 <Textarea
@@ -538,7 +552,11 @@ export function DocumentEditor({ docId, onBack }: Props) {
               {/* Totals summary */}
               <div className="rounded-md border p-3 space-y-1 text-sm">
                 <SummaryRow
-                  label={doc.taxInclusive ? "Subtotal (incl. tax)" : "Subtotal"}
+                  label={
+                    doc.taxInclusive && docHasTax(doc)
+                      ? "Subtotal (incl. tax)"
+                      : "Subtotal"
+                  }
                   value={formatCurrency(totals.subtotal, business.currencySymbol)}
                 />
                 {totals.globalDiscountAmount > 0 && (
@@ -547,10 +565,12 @@ export function DocumentEditor({ docId, onBack }: Props) {
                     value={`- ${formatCurrency(totals.globalDiscountAmount, business.currencySymbol)}`}
                   />
                 )}
-                <SummaryRow
-                  label={`Tax (${doc.taxRate}%${doc.taxInclusive ? " incl." : ""})`}
-                  value={formatCurrency(totals.taxAmount, business.currencySymbol)}
-                />
+                {docHasTax(doc) && (
+                  <SummaryRow
+                    label={`Tax (${doc.taxRate}%${doc.taxInclusive ? " incl." : ""})`}
+                    value={formatCurrency(totals.taxAmount, business.currencySymbol)}
+                  />
+                )}
                 <div className="flex justify-between font-bold pt-1 border-t mt-1">
                   <span>Total</span>
                   <span>{formatCurrency(totals.total, business.currencySymbol)}</span>

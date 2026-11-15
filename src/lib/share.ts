@@ -1,5 +1,5 @@
 import type { BusinessProfile, InvoiceDocument } from "./types";
-import { computeTotals, formatCurrency, formatDate, phoneForWa, todayISO } from "./format";
+import { computeTotals, docHasTax, formatCurrency, formatDate, phoneForWa, todayISO } from "./format";
 
 interface ShareContext {
   business: BusinessProfile;
@@ -163,7 +163,9 @@ export async function copySummaryToClipboard({
     totals.globalDiscountAmount > 0
       ? `Discount (${doc.globalDiscountPercent}%): -${formatCurrency(totals.globalDiscountAmount, business.currencySymbol)}`
       : "",
-    `Tax (${doc.taxRate}%${doc.taxInclusive ? " incl." : ""}): ${formatCurrency(totals.taxAmount, business.currencySymbol)}`,
+    docHasTax(doc)
+      ? `Tax (${doc.taxRate}%${doc.taxInclusive ? " incl." : ""}): ${formatCurrency(totals.taxAmount, business.currencySymbol)}`
+      : "",
     `TOTAL: ${formatCurrency(totals.total, business.currencySymbol)}`,
     totals.depositAmount > 0
       ? `Deposit now (${doc.depositPercent}%): -${formatCurrency(totals.depositAmount, business.currencySymbol)}`

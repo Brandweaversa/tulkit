@@ -97,7 +97,10 @@ model InvoiceDocument {
 
   issueDate  String
   dueDate    String
-  taxRate    Float
+  // Tax is optional: null means the document carries no tax at all — the Tax
+  // row is hidden on the preview, the PDF and share texts. A number (incl. 0)
+  // always shows.
+  taxRate    Float?
   globalDiscountPercent Float @default(0)
   // Prices already include tax (e.g. VAT-inclusive quotes) — tax is
   // extracted from the totals instead of added on top.

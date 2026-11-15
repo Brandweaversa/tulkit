@@ -1,7 +1,7 @@
 "use client";
 
 import type { BusinessProfile, InvoiceDocument } from "@/lib/types";
-import { computeTotals, displayWebsite, formatCurrency, formatDate, websiteHref } from "@/lib/format";
+import { computeTotals, displayWebsite, docHasTax, formatCurrency, formatDate, websiteHref } from "@/lib/format";
 
 interface Props {
   business: BusinessProfile;
@@ -192,7 +192,11 @@ export function InvoicePreview({ business, doc, showWatermark }: Props) {
         <div className="flex justify-end">
           <div className="w-full sm:w-72 space-y-1.5 text-sm">
             <Row
-              label={doc.taxInclusive ? "Subtotal (incl. tax)" : "Subtotal"}
+              label={
+                doc.taxInclusive && docHasTax(doc)
+                  ? "Subtotal (incl. tax)"
+                  : "Subtotal"
+              }
               value={formatCurrency(totals.subtotal, business.currencySymbol)}
             />
             {totals.globalDiscountAmount > 0 && (
@@ -201,10 +205,12 @@ export function InvoicePreview({ business, doc, showWatermark }: Props) {
                 value={`- ${formatCurrency(totals.globalDiscountAmount, business.currencySymbol)}`}
               />
             )}
-            <Row
-              label={`Tax (${doc.taxRate}%${doc.taxInclusive ? " incl." : ""})`}
-              value={formatCurrency(totals.taxAmount, business.currencySymbol)}
-            />
+            {docHasTax(doc) && (
+              <Row
+                label={`Tax (${doc.taxRate}%${doc.taxInclusive ? " incl." : ""})`}
+                value={formatCurrency(totals.taxAmount, business.currencySymbol)}
+              />
+            )}
             <div
               className="flex justify-between items-center px-3 py-2 rounded mt-2 text-white font-bold"
               style={{ backgroundColor: accent }}

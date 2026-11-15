@@ -100,7 +100,8 @@ export interface InvoiceDocument {
   issueDate: string;
   dueDate: string;
   items: LineItem[];
-  taxRate: number;
+  /** null = no tax on this document (Tax row hidden everywhere). 0 is still shown. */
+  taxRate: number | null;
   globalDiscountPercent: number;
   taxInclusive: boolean;
   depositPercent: number;

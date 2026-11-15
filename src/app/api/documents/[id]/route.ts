@@ -62,6 +62,15 @@ export async function PUT(request: Request, { params }: Params) {
   if ("taxInclusive" in data) {
     data.taxInclusive = Boolean(data.taxInclusive);
   }
+  if ("taxRate" in data) {
+    // Clearing the tax field (null/empty/junk) removes tax from the document —
+    // the Tax row then disappears from the preview, PDF and share texts.
+    const rawRate = data.taxRate;
+    data.taxRate =
+      rawRate === null || rawRate === "" || !Number.isFinite(Number(rawRate))
+        ? null
+        : Number(rawRate);
+  }
   if ("depositPercent" in data) {
     const pct = Number(data.depositPercent);
     data.depositPercent = Number.isFinite(pct)
