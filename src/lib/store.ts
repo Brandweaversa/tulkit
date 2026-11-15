@@ -599,6 +599,7 @@ export const useStore = create<StoreState>((set, get) => ({
 function buildSavePayload(doc: InvoiceDocument) {
   return {
     items: doc.items,
+    number: doc.number,
     taxRate: doc.taxRate,
     globalDiscountPercent: doc.globalDiscountPercent,
     taxInclusive: doc.taxInclusive ?? false,

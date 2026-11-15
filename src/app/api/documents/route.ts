@@ -131,7 +131,20 @@ export async function POST(request: Request) {
 
     const currentNum = type === "invoice" ? biz.nextInvoiceNumber : biz.nextQuoteNumber;
     const currentPrefix = type === "invoice" ? biz.invoicePrefix : biz.quotePrefix;
-    const docNumber = `${currentPrefix}-${String(currentNum).padStart(4, "0")}`;
+    const formatNumber = (n: number) =>
+      `${currentPrefix}-${String(n).padStart(4, "0")}`;
+    // Custom numbers can occupy upcoming sequence slots — skip any collisions
+    // so an automatic number can never duplicate an existing document.
+    let seq = currentNum;
+    while (
+      await tx.invoiceDocument.findFirst({
+        where: { userId: user.id, number: formatNumber(seq) },
+        select: { id: true },
+      })
+    ) {
+      seq += 1;
+    }
+    const docNumber = formatNumber(seq);
 
     // Create the document
     const created = await tx.invoiceDocument.create({
@@ -174,16 +187,17 @@ export async function POST(request: Request) {
       include: { items: true },
     });
 
-    // Advance the counter
+    // Advance the counter past everything consumed, including any sequence
+    // slots skipped because a custom number already occupied them
     if (type === "invoice") {
       await tx.businessProfile.update({
         where: { userId: user.id },
-        data: { nextInvoiceNumber: { increment: 1 } },
+        data: { nextInvoiceNumber: seq + 1 },
       });
     } else {
       await tx.businessProfile.update({
         where: { userId: user.id },
-        data: { nextQuoteNumber: { increment: 1 } },
+        data: { nextQuoteNumber: seq + 1 },
       });
     }
 

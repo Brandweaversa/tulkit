@@ -93,6 +93,40 @@ export async function PUT(request: Request, { params }: Params) {
     data.paidAt = null;
   }
 
+  // ---- Custom document number (optional override of the automatic one) ----
+  // A custom number never pushes the automatic sequence forward. If the doc
+  // currently holds the newest automatic number, that number is released back
+  // to the counter so the sequence never develops gaps.
+  let numberChanged = false;
+  if ("number" in data) {
+    const rawNumber = typeof data.number === "string" ? data.number.trim() : "";
+    if (!rawNumber) {
+      // Empty is never valid — keep the current number rather than failing
+      delete data.number;
+    } else {
+      if (rawNumber.length > 40) {
+        return NextResponse.json(
+          { error: "Document number is too long (max 40 characters)" },
+          { status: 400 },
+        );
+      }
+      if (rawNumber !== existing.number) {
+        const duplicate = await db.invoiceDocument.findFirst({
+          where: { userId: user.id, number: rawNumber, NOT: { id } },
+          select: { id: true },
+        });
+        if (duplicate) {
+          return NextResponse.json(
+            { error: `Number ${rawNumber} is already used by another document` },
+            { status: 409 },
+          );
+        }
+      }
+      data.number = rawNumber;
+      numberChanged = rawNumber !== existing.number;
+    }
+  }
+
   // Update client if changed
   if (body.clientId && body.clientId !== existing.clientId) {
     const newClient = await db.client.findFirst({
@@ -110,9 +144,40 @@ export async function PUT(request: Request, { params }: Params) {
     }
   }
 
-  // Handle items update — wrapped in transaction for safety
-  if (Array.isArray(body.items)) {
-    await db.$transaction(async (tx) => {
+  // Handle items update + document update — one transaction also covers the
+  // number-counter rollback so the sequence and the document never disagree
+  await db.$transaction(async (tx) => {
+    if (numberChanged) {
+      // No-gap numbering: if this document currently holds the newest
+      // automatic number and is being moved to a custom one, that automatic
+      // number goes back into the sequence.
+      const biz = await tx.businessProfile.findUnique({
+        where: { userId: user.id },
+        select: {
+          nextInvoiceNumber: true,
+          nextQuoteNumber: true,
+          invoicePrefix: true,
+          quotePrefix: true,
+        },
+      });
+      if (biz) {
+        const isInvoice = existing.type === "invoice";
+        const prefix = isInvoice ? biz.invoicePrefix : biz.quotePrefix;
+        const counter = isInvoice ? biz.nextInvoiceNumber : biz.nextQuoteNumber;
+        const latestAuto = `${prefix}-${String(counter - 1).padStart(4, "0")}`;
+        const incoming = typeof data.number === "string" ? data.number : undefined;
+        if (existing.number === latestAuto && incoming !== latestAuto) {
+          await tx.businessProfile.update({
+            where: { userId: user.id },
+            data: isInvoice
+              ? { nextInvoiceNumber: { decrement: 1 } }
+              : { nextQuoteNumber: { decrement: 1 } },
+          });
+        }
+      }
+    }
+
+    if (Array.isArray(body.items)) {
       await tx.lineItem.deleteMany({ where: { documentId: id } });
       if (body.items.length > 0) {
         await tx.lineItem.createMany({
@@ -126,12 +191,9 @@ export async function PUT(request: Request, { params }: Params) {
           })),
         });
       }
-      await tx.invoiceDocument.update({ where: { id }, data });
-    });
-  } else {
-    // No items update — just update the document
-    await db.invoiceDocument.update({ where: { id }, data });
-  }
+    }
+    await tx.invoiceDocument.update({ where: { id }, data });
+  });
 
   // Fetch the updated document with items to return
   const updated = await db.invoiceDocument.findUnique({

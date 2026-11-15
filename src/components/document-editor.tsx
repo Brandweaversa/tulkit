@@ -340,6 +340,19 @@ export function DocumentEditor({ docId, onBack }: Props) {
                   />
                 </div>
               </div>
+              <div className="space-y-1.5">
+                <Label>Document number</Label>
+                <Input
+                  value={doc.number}
+                  maxLength={40}
+                  onChange={(e) => updateDoc(doc.id, { number: e.target.value })}
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  Type any number to override the automatic one — the automatic
+                  sequence continues from the last automatic number, so custom
+                  numbers never push it ahead or leave gaps.
+                </p>
+              </div>
             </CardContent>
           </Card>
 
