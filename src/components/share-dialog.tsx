@@ -209,7 +209,7 @@ export function ShareDialog({
     }
   }
 
-  function handleWhatsApp() {
+  async function handleWhatsApp() {
     if (!canWhatsApp) {
       toast({
         title: "Pro feature",
@@ -218,6 +218,33 @@ export function ShareDialog({
       });
       return;
     }
+    // Preferred path: hand the real PDF to the OS share sheet, where the
+    // user picks WhatsApp — the file arrives attached. wa.me links can only
+    // carry text, so this is the only way a web page can attach a PDF.
+    if (canDownloadPdf && canShareFiles) {
+      if (!pdfFile) {
+        toast({
+          title: "Preparing PDF…",
+          description: "One moment — then tap Send again.",
+        });
+        return;
+      }
+      const text = activeMode === "reminder" ? editedReminder : editedMessage;
+      const title =
+        activeMode === "reminder" ? editedReminderSubject : editedSubject;
+      try {
+        await navigator.share({ files: [pdfFile], title, text });
+        if (doc.status === "draft") markAs(doc.id, "sent");
+      } catch (e) {
+        // Closing the share sheet without sending is not an error.
+        if ((e as DOMException)?.name === "AbortError") return;
+        console.error(e);
+        toast({ title: "Could not share PDF", variant: "destructive" });
+      }
+      return;
+    }
+    // Fallback (no file sharing available): open the chat directly. WhatsApp
+    // links can't carry attachments — the user adds the PDF manually.
     const url =
       activeMode === "reminder"
         ? whatsappReminderUrl(ctx)
@@ -231,6 +258,16 @@ export function ShareDialog({
           ? "Attach the PDF if the client has lost the original."
           : "Attach the downloaded PDF before sending.",
     });
+  }
+
+  function handleWhatsAppChatOnly() {
+    if (!canWhatsApp) return;
+    const url =
+      activeMode === "reminder"
+        ? whatsappReminderUrl(ctx)
+        : whatsappShareUrl(ctx);
+    window.open(url, "_blank", "noopener,noreferrer");
+    if (doc.status === "draft") markAs(doc.id, "sent");
   }
 
   function handleEmail() {
@@ -290,7 +327,7 @@ export function ShareDialog({
           <DialogDescription>
             {activeMode === "reminder"
               ? "A gentle payment nudge via WhatsApp or email."
-              : "Download the PDF, then send it via WhatsApp or email."}
+              : "Send the PDF with a pre-filled message via WhatsApp or email."}
           </DialogDescription>
         </DialogHeader>
 
@@ -422,20 +459,56 @@ export function ShareDialog({
               <LockedNotice feature="WhatsApp sharing" />
             ) : (
               <>
-                <Label>Send to (client phone)</Label>
-                <div className="flex gap-2">
-                  <Input
-                    value={editedPhone}
-                    onChange={(e) => setEditedPhone(e.target.value)}
-                    placeholder="+27 82 555 0101"
-                  />
-                  <Button onClick={handleWhatsApp} className="bg-[#25D366] hover:bg-[#1FB855] text-white shrink-0">
-                    <Phone className="h-4 w-4 mr-2" /> Open WhatsApp
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Format: international with country code. Local 0XX numbers auto-convert to +27.
-                </p>
+                {canDownloadPdf && canShareFiles ? (
+                  <>
+                    <Button
+                      onClick={handleWhatsApp}
+                      className="bg-[#25D366] hover:bg-[#1FB855] text-white w-full"
+                    >
+                      {pdfFile ? (
+                        <>
+                          <Share2 className="h-4 w-4 mr-2" /> Send via WhatsApp — PDF attached
+                        </>
+                      ) : (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Preparing PDF…
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleWhatsAppChatOnly}
+                      className="w-full"
+                    >
+                      <MessageCircle className="h-4 w-4 mr-2" /> Open chat without PDF
+                    </Button>
+                    <p className="text-xs text-muted-foreground">
+                      The share sheet opens with the PDF attached — pick
+                      WhatsApp, then the client&apos;s chat. &ldquo;Open chat
+                      without PDF&rdquo; jumps straight to{" "}
+                      {editedPhone || "the client"} instead, but WhatsApp can&apos;t
+                      receive attachments through a chat link.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <Label>Send to (client phone)</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        value={editedPhone}
+                        onChange={(e) => setEditedPhone(e.target.value)}
+                        placeholder="+27 82 555 0101"
+                      />
+                      <Button onClick={handleWhatsApp} className="bg-[#25D366] hover:bg-[#1FB855] text-white shrink-0">
+                        <Phone className="h-4 w-4 mr-2" /> Open WhatsApp
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Format: international with country code. Local 0XX numbers auto-convert to +27.
+                    </p>
+                  </>
+                )}
               </>
             )}
           </TabsContent>
