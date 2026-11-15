@@ -26,9 +26,10 @@ import {
   Crown,
   Share2,
   BellRing,
+  Loader2,
 } from "lucide-react";
 import type { BusinessProfile, InvoiceDocument } from "@/lib/types";
-import { downloadInvoicePdf, invoicePdfDataUrl } from "@/lib/pdf";
+import { downloadInvoicePdf, invoicePdfDataUrl, invoicePdfFilename } from "@/lib/pdf";
 import {
   whatsappShareUrl,
   emailShareUrl,
@@ -81,6 +82,12 @@ export function ShareDialog({
     buildReminderSubject({ business, doc }),
   );
   const [mode, setMode] = useState<"share" | "reminder">(initialMode);
+  // Pre-built PDF for the native share sheet. Null while generating.
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  // True only when this browser can hand files to the OS share sheet
+  // (Android Chrome, iOS Safari, desktop Edge/Chrome/Safari). The Share PDF
+  // button is hidden entirely when false.
+  const [canShareFiles, setCanShareFiles] = useState(false);
 
   // Re-sync mode + message drafts every time the dialog opens.
   useEffect(() => {
@@ -93,6 +100,39 @@ export function ShareDialog({
       setEditedPhone(doc.clientSnapshot.phone ?? "");
       setEditedEmail(doc.clientSnapshot.email ?? "");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initialMode]);
+
+  // Generate the PDF while the dialog is open so the Share button is
+  // gesture-ready. Pre-generation matters on iOS: navigator.share() must run
+  // inside the user gesture, so the share call can never await PDF work.
+  useEffect(() => {
+    if (!open) return;
+    setPdfFile(null);
+    setCanShareFiles(false);
+    if (!canDownloadPdf) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const dataUrl = await invoicePdfDataUrl(ctx);
+        if (cancelled) return;
+        const blob = await (await fetch(dataUrl)).blob();
+        const file = new File([blob], invoicePdfFilename(doc), {
+          type: "application/pdf",
+        });
+        if (cancelled) return;
+        setPdfFile(file);
+        setCanShareFiles(
+          typeof navigator.share === "function" &&
+            Boolean(navigator.canShare?.({ files: [file] })),
+        );
+      } catch (e) {
+        console.error("Share-PDF preparation failed:", e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initialMode]);
 
@@ -132,6 +172,40 @@ export function ShareDialog({
     } catch (e) {
       console.error(e);
       toast({ title: "Could not generate PDF", variant: "destructive" });
+    }
+  }
+
+  // Native share sheet: hands the actual PDF file to the OS so the user can
+  // send it from any app — WhatsApp, iMessage, Telegram, Outlook, anything
+  // installed. Falls back silently: the button simply isn't rendered when
+  // the browser can't share files.
+  async function handleSharePdf() {
+    if (!canDownloadPdf) {
+      toast({
+        title: "Pro feature",
+        description: "PDF sharing requires a Pro subscription.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!pdfFile) {
+      toast({
+        title: "Preparing PDF…",
+        description: "One moment — then tap Share PDF again.",
+      });
+      return;
+    }
+    const text = activeMode === "reminder" ? editedReminder : editedMessage;
+    const title =
+      activeMode === "reminder" ? editedReminderSubject : editedSubject;
+    try {
+      await navigator.share({ files: [pdfFile], title, text });
+      if (doc.status === "draft") markAs(doc.id, "sent");
+    } catch (e) {
+      // Closing the share sheet without sending is not an error.
+      if ((e as DOMException)?.name === "AbortError") return;
+      console.error(e);
+      toast({ title: "Could not share PDF", variant: "destructive" });
     }
   }
 
@@ -242,6 +316,41 @@ export function ShareDialog({
           </div>
         )}
 
+        {/* Native share sheet — shown only when the browser can share files.
+          Locked for free users so the upsell stays visible, like the other
+          PDF features. */}
+        {canDownloadPdf && canShareFiles ? (
+          <Button
+            onClick={handleSharePdf}
+            disabled={!pdfFile}
+            className="w-full bg-[#0E7C9C] hover:bg-[#0A6582] text-white"
+          >
+            {pdfFile ? (
+              <>
+                <Share2 className="h-4 w-4 mr-2" />
+                Share PDF
+              </>
+            ) : (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Preparing PDF…
+              </>
+            )}
+          </Button>
+        ) : (
+          !canDownloadPdf && (
+            <Button
+              onClick={handleSharePdf}
+              variant="outline"
+              className="w-full bg-muted text-muted-foreground"
+            >
+              <Share2 className="h-4 w-4 mr-2" />
+              Share PDF
+              <Lock className="h-3 w-3 ml-1" />
+            </Button>
+          )
+        )}
+
         {/* Primary actions */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           <FeatureButton
@@ -269,9 +378,13 @@ export function ShareDialog({
         <div className="rounded-md bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 p-3 text-xs text-amber-800 dark:text-amber-200 flex gap-2">
           <Info className="h-4 w-4 shrink-0 mt-0.5" />
           <div>
-            {activeMode === "reminder"
-              ? "The reminder message opens pre-filled in WhatsApp or your email client. Attach the PDF if the client has lost the original."
-              : "Download the PDF first, then share via WhatsApp or email. Your message will be pre-filled — just attach the PDF."}
+            {activeMode === "reminder" ?
+              canDownloadPdf && canShareFiles
+                ? "Share PDF opens your phone's share menu with the invoice attached — pick WhatsApp, email or any installed app."
+                : "The reminder message opens pre-filled in WhatsApp or your email client. Attach the PDF if the client has lost the original."
+              : canDownloadPdf && canShareFiles
+                ? "Share PDF opens your phone's share menu with the document attached — pick WhatsApp, email or any installed app."
+                : "Download the PDF first, then share via WhatsApp or email. Your message will be pre-filled — just attach the PDF."}
           </div>
         </div>
 

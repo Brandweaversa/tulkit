@@ -640,16 +640,22 @@ export async function loadTulkitIcon(): Promise<string | null> {
   return tulkitIconCache;
 }
 
-export async function downloadInvoicePdf(opts: PdfOptions): Promise<void> {
-  const tulkitIconDataUrl = await loadTulkitIcon();
-  const pdf = generateInvoicePdf({ ...opts, tulkitIconDataUrl });
-  const { doc, business } = opts;
+// Shared filename for downloads and native sharing. Custom document numbers
+// are user-typed, so strip characters that are illegal in file names before
+// they end up on someone's disk.
+export function invoicePdfFilename(doc: InvoiceDocument): string {
   const clientSlug = (doc.clientSnapshot.company || doc.clientSnapshot.name || "client")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
-  const filename = `${doc.type === "invoice" ? "Invoice" : "Quote"}_${doc.number}_${clientSlug}_${doc.issueDate}.pdf`;
-  pdf.save(filename);
+  const safeNumber = doc.number.replace(/[\\/:*?"<>|]+/g, "-");
+  return `${doc.type === "invoice" ? "Invoice" : "Quote"}_${safeNumber}_${clientSlug}_${doc.issueDate}.pdf`;
+}
+
+export async function downloadInvoicePdf(opts: PdfOptions): Promise<void> {
+  const tulkitIconDataUrl = await loadTulkitIcon();
+  const pdf = generateInvoicePdf({ ...opts, tulkitIconDataUrl });
+  pdf.save(invoicePdfFilename(opts.doc));
 }
 
 export async function invoicePdfDataUrl(opts: PdfOptions): Promise<string> {
