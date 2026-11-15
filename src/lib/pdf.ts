@@ -57,8 +57,11 @@ export function generateInvoicePdf({ business, doc, user }: PdfOptions): jsPDF {
 
   // ----- Business block (top-left) -----
   let y = 50;
-  const logoMaxW = 100;
-  const logoMaxH = 50;
+  // Larger logo box so square brand marks get real presence (matches the
+  // redesigned header band). Landscape logos stay width-capped and are
+  // unaffected by the extra height.
+  const logoMaxW = 140;
+  const logoMaxH = 140;
   let logoH = 0;
 
   if (business.logoDataUrl) {
@@ -87,12 +90,68 @@ export function generateInvoicePdf({ business, doc, user }: PdfOptions): jsPDF {
     }
   }
 
-  // Business name + details — positioned BELOW the logo (avoids overlap)
-  const textStartY = y + Math.max(logoH, 0) + 16;
+  // ----- Header band 1: logo (top-left) + document meta (top-right) -----
+  // Redesigned layout: logo and document meta share one band, then the
+  // from / BILL TO blocks sit side by side in two columns. Saves vertical
+  // space vs the old fully-stacked header.
+  const metaX = pageW - margin;
+
   pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(14);
+  pdf.setFontSize(24);
+  pdf.setTextColor(accent[0], accent[1], accent[2]);
+  pdf.text(title, metaX, y + 20, { align: "right" });
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(11);
+  pdf.setTextColor(70, 70, 70);
+  pdf.text(doc.number, metaX, y + 38, { align: "right" });
+
+  // Issue / Due dates — right-aligned label + bold value pairs
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(8.5);
+  pdf.setTextColor(120, 120, 120);
+  pdf.text("Issue Date", metaX, y + 58, { align: "right" });
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(10);
+  pdf.setTextColor(30, 30, 30);
+  pdf.text(formatDate(doc.issueDate), metaX, y + 70, { align: "right" });
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(8.5);
+  pdf.setTextColor(120, 120, 120);
+  pdf.text(isInvoice ? "Due Date" : "Valid Until", metaX, y + 88, { align: "right" });
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(10);
+  pdf.setTextColor(30, 30, 30);
+  pdf.text(formatDate(doc.dueDate), metaX, y + 100, { align: "right" });
+  // Height of the meta column (title at top → due-date value at bottom)
+  const metaH = 100;
+
+  // Rule closing band 1 — below whichever is taller: logo or meta
+  const band1H = Math.max(logoH, metaH);
+  const rule1Y = y + band1H + 14;
+  pdf.setDrawColor(205, 205, 205);
+  pdf.setLineWidth(1);
+  pdf.line(margin, rule1Y, pageW - margin, rule1Y);
+
+  // ----- Header band 2: from (left) | BILL TO (right) — two columns -----
+  const partiesTop = rule1Y + 20;
+  const dividerX = pageW / 2;
+  const leftColX = margin;
+  const leftColW = dividerX - margin - 22; // gap keeps text clear of the divider
+  const rightColX = dividerX + 20;
+  const rightColW = pageW - margin - rightColX;
+
+  // Left column — business details (name bold, then contact lines)
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(12);
   pdf.setTextColor(20, 20, 20);
-  pdf.text(business.name, margin, textStartY);
+  const bizNameLines = pdf.splitTextToSize(business.name, leftColW) as string[];
+  let leftY = partiesTop;
+  bizNameLines.forEach((l: string) => {
+    pdf.text(l, leftColX, leftY);
+    leftY += 14;
+  });
 
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(9);
@@ -103,58 +162,35 @@ export function generateInvoicePdf({ business, doc, user }: PdfOptions): jsPDF {
     business.phone,
     business.vatNumber ? `VAT: ${business.vatNumber}` : "",
   ].filter((line): line is string => Boolean(line));
-
-  // Use splitTextToSize to wrap long lines, with proper line spacing
-  const maxBizLineW = 220;
-  let bizY = textStartY + 14;
+  leftY += 2;
   bizLines.forEach((line) => {
-    const wrapped = pdf.splitTextToSize(line, maxBizLineW);
+    const wrapped = pdf.splitTextToSize(line, leftColW);
     wrapped.forEach((wLine: string) => {
-      pdf.text(wLine, margin, bizY);
-      bizY += 12;
+      pdf.text(wLine, leftColX, leftY);
+      leftY += 12;
     });
   });
+  const leftH = leftY - partiesTop;
 
-  // ----- Title + number block (top-right) -----
+  // Right column — client details
   pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(26);
-  pdf.setTextColor(accent[0], accent[1], accent[2]);
-  pdf.text(title, pageW - margin, y + 4, { align: "right" });
-
-  pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(11);
-  pdf.setTextColor(60, 60, 60);
-  pdf.text(doc.number, pageW - margin, y + 22, { align: "right" });
-
-  // Issue / Due dates — right column
-  pdf.setFontSize(9);
+  pdf.setFontSize(9.5);
   pdf.setTextColor(120, 120, 120);
-  const dateX = pageW - margin;
-  let dateY = y + 44;
-  pdf.text("Issue Date", dateX, dateY, { align: "right" });
-  pdf.setTextColor(30, 30, 30);
-  pdf.setFont("helvetica", "bold");
-  pdf.text(formatDate(doc.issueDate), dateX, dateY + 12, { align: "right" });
-  pdf.setFont("helvetica", "normal");
-  pdf.setTextColor(120, 120, 120);
-  dateY += 32;
-  pdf.text(isInvoice ? "Due Date" : "Valid Until", dateX, dateY, { align: "right" });
-  pdf.setTextColor(30, 30, 30);
-  pdf.setFont("helvetica", "bold");
-  pdf.text(formatDate(doc.dueDate), dateX, dateY + 12, { align: "right" });
-
-  // ----- Bill To block — positioned below the business block -----
-  const billToY = Math.max(bizY + 16, dateY + 32);
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(10);
-  pdf.setTextColor(120, 120, 120);
-  pdf.text(isInvoice ? "BILL TO" : "QUOTE FOR", margin, billToY);
+  pdf.text(isInvoice ? "BILL TO" : "QUOTE FOR", rightColX, partiesTop);
 
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(12);
   pdf.setTextColor(20, 20, 20);
   const client = doc.clientSnapshot;
-  pdf.text(client.company || client.name, margin, billToY + 16);
+  const clientNameLines = pdf.splitTextToSize(
+    client.company || client.name,
+    rightColW,
+  ) as string[];
+  let rightY = partiesTop + 15;
+  clientNameLines.forEach((l: string) => {
+    pdf.text(l, rightColX, rightY);
+    rightY += 14;
+  });
 
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(9);
@@ -166,19 +202,29 @@ export function generateInvoicePdf({ business, doc, user }: PdfOptions): jsPDF {
     client.phone,
     client.vatNumber ? `VAT: ${client.vatNumber}` : "",
   ].filter((line): line is string => Boolean(line));
-
-  const maxClientLineW = 250;
-  let clientTextY = billToY + 32;
+  rightY += 2;
   clientLines.forEach((line) => {
-    const wrapped = pdf.splitTextToSize(line, maxClientLineW);
+    const wrapped = pdf.splitTextToSize(line, rightColW);
     wrapped.forEach((wLine: string) => {
-      pdf.text(wLine, margin, clientTextY);
-      clientTextY += 12;
+      pdf.text(wLine, rightColX, rightY);
+      rightY += 12;
     });
   });
+  const rightH = rightY - partiesTop;
+
+  // Divider between the columns, spanning the taller of the two blocks
+  const partiesH = Math.max(leftH, rightH);
+  pdf.setDrawColor(210, 210, 210);
+  pdf.setLineWidth(1);
+  pdf.line(dividerX, partiesTop - 4, dividerX, partiesTop + partiesH + 2);
+
+  // Rule closing band 2 — the items table starts below it
+  const rule2Y = partiesTop + partiesH + 12;
+  pdf.setDrawColor(205, 205, 205);
+  pdf.line(margin, rule2Y, pageW - margin, rule2Y);
 
   // ----- Items table -----
-  const tableStartY = clientTextY + 16;
+  const tableStartY = rule2Y + 16;
   // Description column takes what's left of the content width after the four
   // fixed-width numeric columns (same result as "auto", but deterministic —
   // we need it for wrapping text inside the custom cell renderer below).
