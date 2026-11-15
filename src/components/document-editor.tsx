@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,6 +62,31 @@ export function DocumentEditor({ docId, onBack }: Props) {
   const [shareMode, setShareMode] = useState<"share" | "reminder">("share");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+
+  // Documents store a snapshot of the client's details at creation time.
+  // Keep that snapshot in step with the live client record while editing:
+  // when the editor opens (or the client list updates), re-pull the client's
+  // current details so updates like a new phone number flow into the
+  // document — guarded by a compare so this only fires on real changes.
+  useEffect(() => {
+    if (!doc?.clientId) return;
+    const client = clients.find((c) => c.id === doc.clientId);
+    if (!client) return;
+    const snap = doc.clientSnapshot;
+    if (
+      snap &&
+      snap.name === client.name &&
+      snap.email === client.email &&
+      snap.phone === client.phone &&
+      snap.company === client.company &&
+      snap.address === client.address &&
+      snap.vatNumber === client.vatNumber &&
+      snap.website === client.website
+    ) {
+      return;
+    }
+    updateDoc(doc.id, { clientSnapshot: { ...client } });
+  }, [doc, clients, updateDoc]);
 
   if (!doc) {
     return (
