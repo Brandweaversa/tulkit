@@ -125,7 +125,7 @@ export function DocumentEditor({ docId, onBack }: Props) {
       return;
     }
     try {
-      downloadInvoicePdf({ business, doc: doc as InvoiceDocument, user: userCtx });
+      await downloadInvoicePdf({ business, doc: doc as InvoiceDocument, user: userCtx });
       toast({ title: "PDF downloaded" });
     } catch {
       toast({ title: "PDF generation failed", variant: "destructive" });

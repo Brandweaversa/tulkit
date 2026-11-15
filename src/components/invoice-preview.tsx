@@ -282,10 +282,30 @@ export function InvoicePreview({ business, doc, showWatermark }: Props) {
         </div>
       )}
 
-      <div className="border-t px-6 py-3 text-center text-[10px] text-neutral-400 break-words">
-        {business.name}
-        {business.email ? ` · ${business.email}` : ""}
-        {business.phone ? ` · ${business.phone}` : ""}
+      <div className="border-t px-6 py-3 space-y-1.5">
+        <div className="text-center text-[10px] text-neutral-400 break-words">
+          {business.name}
+          {business.email ? ` · ${business.email}` : ""}
+          {business.phone ? ` · ${business.phone}` : ""}
+        </div>
+        {/* Brand footer — on every document created by Tulkit */}
+        <div className="flex items-center justify-center gap-1.5 text-[10px] text-neutral-400">
+          <img
+            src="/tulkit-icon-main.png"
+            alt="Tulkit"
+            className="h-3.5 w-3.5 rounded-[3px]"
+          />
+          <span>Powered by</span>
+          <a
+            href="https://tulkit.co.za"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-semibold hover:underline"
+            style={{ color: "#0E7C9C" }}
+          >
+            Tulkit
+          </a>
+        </div>
       </div>
     </div>
   );

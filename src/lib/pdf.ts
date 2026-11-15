@@ -13,6 +13,9 @@ interface PdfOptions {
     subscriptionStatus: string;
     allocatedFeatures: string[];
   } | null;
+  // Data URL of the Tulkit icon for the brand footer. Loaded via
+  // loadTulkitIcon(); when absent a drawn badge is used instead.
+  tulkitIconDataUrl?: string | null;
 }
 
 // Convert hex "#RRGGBB" -> [r, g, b]
@@ -29,7 +32,7 @@ function hexToRgb(hex: string): [number, number, number] {
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 
-export function generateInvoicePdf({ business, doc, user }: PdfOptions): jsPDF {
+export function generateInvoicePdf({ business, doc, user, tulkitIconDataUrl }: PdfOptions): jsPDF {
   const pdf = new jsPDF({ unit: "pt", format: "a4" });
   const pageW = pdf.internal.pageSize.getWidth();
   const pageH = pdf.internal.pageSize.getHeight();
@@ -533,22 +536,113 @@ export function generateInvoicePdf({ business, doc, user }: PdfOptions): jsPDF {
 
   // ----- Footer -----
   pdf.setDrawColor(220, 220, 220);
-  pdf.line(margin, pageH - 40, pageW - margin, pageH - 40);
+  pdf.line(margin, pageH - 44, pageW - margin, pageH - 44);
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(8);
   pdf.setTextColor(150, 150, 150);
   pdf.text(
     `${business.name} · ${business.email ?? ""} · ${business.phone ?? ""}`,
     pageW / 2,
-    pageH - 24,
+    pageH - 30,
     { align: "center" },
   );
+
+  // ----- Powered by Tulkit (brand footer on every document) -----
+  drawPoweredBy(pdf, pageW, pageH, tulkitIconDataUrl);
 
   return pdf;
 }
 
-export function downloadInvoicePdf(opts: PdfOptions): void {
-  const pdf = generateInvoicePdf(opts);
+// ---------------------------------------------------------------------------
+// Tulkit brand footer
+// ---------------------------------------------------------------------------
+
+const TULKIT_URL = "https://tulkit.co.za";
+const TULKIT_TEAL: [number, number, number] = [14, 124, 156]; // #0E7C9C
+
+function drawPoweredBy(
+  pdf: jsPDF,
+  pageW: number,
+  pageH: number,
+  iconDataUrl?: string | null,
+): void {
+  const label = "Powered by ";
+  const brand = "Tulkit";
+  const iconSize = 10;
+  const baseline = pageH - 13;
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(8);
+  const labelW = pdf.getTextWidth(label);
+  pdf.setFont("helvetica", "bold");
+  const brandW = pdf.getTextWidth(brand);
+  const totalW = iconSize + 3 + labelW + brandW;
+
+  let x = (pageW - totalW) / 2;
+  const iconY = baseline - iconSize + 2.5;
+
+  // Icon: the real Tulkit mark when it loaded, otherwise a drawn badge
+  if (iconDataUrl) {
+    try {
+      pdf.addImage(iconDataUrl, "PNG", x, iconY, iconSize, iconSize);
+    } catch {
+      drawTulkitBadge(pdf, x, iconY, iconSize);
+    }
+  } else {
+    drawTulkitBadge(pdf, x, iconY, iconSize);
+  }
+  x += iconSize + 3;
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(8);
+  pdf.setTextColor(150, 150, 150);
+  pdf.text(label, x, baseline);
+  x += labelW;
+  pdf.setFont("helvetica", "bold");
+  pdf.setTextColor(TULKIT_TEAL[0], TULKIT_TEAL[1], TULKIT_TEAL[2]);
+  pdf.text(brand, x, baseline);
+
+  // The whole strip is clickable and leads to the Tulkit website
+  pdf.link((pageW - totalW) / 2, baseline - iconSize, totalW, iconSize + 3, {
+    url: TULKIT_URL,
+  });
+}
+
+// Vector fallback: rounded teal square with a white T
+function drawTulkitBadge(pdf: jsPDF, x: number, y: number, size: number): void {
+  pdf.setFillColor(TULKIT_TEAL[0], TULKIT_TEAL[1], TULKIT_TEAL[2]);
+  pdf.roundedRect(x, y, size, size, 2, 2, "F");
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(7);
+  pdf.setTextColor(255, 255, 255);
+  pdf.text("T", x + size / 2, y + size / 2 + 2.5, { align: "center" });
+}
+
+// Fetch + cache the Tulkit icon as a data URL for the PDF footer.
+// Resolves null when unavailable — callers fall back to the drawn badge.
+let tulkitIconCache: string | null | undefined;
+export async function loadTulkitIcon(): Promise<string | null> {
+  if (tulkitIconCache !== undefined) return tulkitIconCache;
+  try {
+    const res = await fetch("/tulkit-icon-main.png");
+    if (!res.ok) throw new Error(String(res.status));
+    const blob = await res.blob();
+    tulkitIconCache = await new Promise<string | null>((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () =>
+        resolve(typeof reader.result === "string" ? reader.result : null);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    tulkitIconCache = null;
+  }
+  return tulkitIconCache;
+}
+
+export async function downloadInvoicePdf(opts: PdfOptions): Promise<void> {
+  const tulkitIconDataUrl = await loadTulkitIcon();
+  const pdf = generateInvoicePdf({ ...opts, tulkitIconDataUrl });
   const { doc, business } = opts;
   const clientSlug = (doc.clientSnapshot.company || doc.clientSnapshot.name || "client")
     .toLowerCase()
@@ -558,7 +652,8 @@ export function downloadInvoicePdf(opts: PdfOptions): void {
   pdf.save(filename);
 }
 
-export function invoicePdfDataUrl(opts: PdfOptions): string {
-  const pdf = generateInvoicePdf(opts);
+export async function invoicePdfDataUrl(opts: PdfOptions): Promise<string> {
+  const tulkitIconDataUrl = await loadTulkitIcon();
+  const pdf = generateInvoicePdf({ ...opts, tulkitIconDataUrl });
   return pdf.output("datauristring");
 }

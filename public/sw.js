@@ -10,7 +10,7 @@
  * Bump VERSION whenever you need clients to pick up a new app shell — old
  * caches are purged on activation.
  */
-const VERSION = "v1";
+const VERSION = "v2";
 const CACHE = `tulkit-pwa-${VERSION}`;
 const OFFLINE_URL = "/offline";
 const PRECACHE = [OFFLINE_URL, "/manifest.webmanifest", "/icons/icon-192.png"];

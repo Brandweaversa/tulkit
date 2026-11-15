@@ -116,7 +116,7 @@ export function ShareDialog({
     (doc.status === "sent" || doc.status === "viewed" || doc.status === "overdue");
   const activeMode = reminderEligible ? mode : "share";
 
-  function handleDownload() {
+  async function handleDownload() {
     if (!canDownloadPdf) {
       toast({
         title: "Pro feature",
@@ -126,7 +126,7 @@ export function ShareDialog({
       return;
     }
     try {
-      downloadInvoicePdf(ctx);
+      await downloadInvoicePdf(ctx);
       toast({ title: "PDF downloaded", description: `${doc.number}.pdf saved` });
       if (doc.status === "draft") markAs(doc.id, "sent");
     } catch (e) {
@@ -191,12 +191,12 @@ export function ShareDialog({
     }
   }
 
-  function handleOpenPreview() {
+  async function handleOpenPreview() {
     if (!canDownloadPdf) {
       toast({ title: "Pro feature", description: "PDF preview requires Pro.", variant: "destructive" });
       return;
     }
-    const dataUrl = invoicePdfDataUrl(ctx);
+    const dataUrl = await invoicePdfDataUrl(ctx);
     const w = window.open();
     if (w) {
       w.document.write(
