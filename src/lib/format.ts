@@ -213,6 +213,7 @@ export const DEFAULT_BUSINESS: BusinessProfile = {
   nextQuoteNumber: 1,
   defaultTaxRate: 15, // SA VAT
   defaultPaymentTerms: "Payment due within 7 days of issue date.",
+  defaultNotes: "",
 
   // Account state for the default profile (free tier until upgraded)
   role: "user",

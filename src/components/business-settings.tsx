@@ -350,6 +350,19 @@ export function BusinessSettings() {
               }
             />
           </Field>
+          <Field label="Default notes">
+            <Textarea
+              rows={3}
+              value={business.defaultNotes ?? ""}
+              onChange={(e) =>
+                updateBusiness({ defaultNotes: e.target.value })
+              }
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Pre-fills the Notes box on every new invoice and quote. Typing
+              over it on a document overrides it for that document only.
+            </p>
+          </Field>
         </CardContent>
       </Card>
 

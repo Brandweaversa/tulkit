@@ -80,6 +80,7 @@ export interface BusinessProfile {
   nextQuoteNumber: number;
   defaultTaxRate: number;
   defaultPaymentTerms: string;
+  defaultNotes?: string;
 
   // Role + subscription
   role: UserRole;

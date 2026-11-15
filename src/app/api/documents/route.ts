@@ -152,7 +152,11 @@ export async function POST(request: Request) {
         dueDate: addDaysISO(todayISO(), 7),
         taxRate: business.defaultTaxRate,
         globalDiscountPercent: 0,
-        notes: type === "invoice" ? "Thank you for your business." : null,
+        // Default notes from Settings prefill every new document; whatever
+        // the user types on the document overrides it afterwards.
+        notes:
+          business.defaultNotes ??
+          (type === "invoice" ? "Thank you for your business." : null),
         paymentTerms: business.defaultPaymentTerms,
         createdAt: now,
         updatedAt: now,

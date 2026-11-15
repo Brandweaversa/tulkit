@@ -43,6 +43,7 @@ export function serializeBusiness(b: PrismaBusiness): BusinessProfile {
     nextQuoteNumber: b.nextQuoteNumber,
     defaultTaxRate: b.defaultTaxRate,
     defaultPaymentTerms: b.defaultPaymentTerms,
+    defaultNotes: b.defaultNotes ?? undefined,
     role: b.role as "admin" | "user",
     subscriptionStatus: b.subscriptionStatus as "none" | "trial" | "active" | "expired",
     subscriptionExpiresAt: b.subscriptionExpiresAt?.toISOString(),

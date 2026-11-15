@@ -29,7 +29,7 @@ export async function PUT(request: Request) {
     "bankName", "bankAccount", "bankBranch", "swift",
     "logoDataUrl", "accentColor", "currency", "currencySymbol",
     "invoicePrefix", "quotePrefix", "nextInvoiceNumber", "nextQuoteNumber",
-    "defaultTaxRate", "defaultPaymentTerms",
+    "defaultTaxRate", "defaultPaymentTerms", "defaultNotes",
   ];
 
   const data: Record<string, unknown> = {};
