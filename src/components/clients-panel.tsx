@@ -18,7 +18,7 @@ import { Plus, Pencil, Trash2, User, Search, FileText, ArrowRight } from "lucide
 import { v4 as uuid } from "uuid";
 import { useStore } from "@/lib/store";
 import type { Client } from "@/lib/types";
-import { computeTotals, effectiveStatus, formatCurrency, formatDate } from "@/lib/format";
+import { computeTotals, displayWebsite, effectiveStatus, formatCurrency, formatDate, websiteHref } from "@/lib/format";
 import { toast } from "@/hooks/use-toast";
 
 const EMPTY_CLIENT: Client = {
@@ -29,6 +29,7 @@ const EMPTY_CLIENT: Client = {
   company: "",
   address: "",
   vatNumber: "",
+  website: "",
 };
 
 interface Props {
@@ -253,6 +254,16 @@ export function ClientsPanel({ onViewDocs }: Props) {
                 <div className="text-xs text-muted-foreground space-y-0.5">
                   {c.email && <div className="truncate">{c.email}</div>}
                   {c.phone && <div>{c.phone}</div>}
+                  {c.website && (
+                    <a
+                      href={websiteHref(c.website)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block truncate hover:underline"
+                    >
+                      {displayWebsite(c.website)}
+                    </a>
+                  )}
                   {c.address && <div className="truncate">{c.address}</div>}
                 </div>
 
@@ -341,6 +352,13 @@ export function ClientsPanel({ onViewDocs }: Props) {
                   rows={2}
                   value={editing.address ?? ""}
                   onChange={(e) => setEditing({ ...editing, address: e.target.value })}
+                />
+              </Field>
+              <Field label="Website">
+                <Input
+                  value={editing.website ?? ""}
+                  onChange={(e) => setEditing({ ...editing, website: e.target.value })}
+                  placeholder="www.example.co.za"
                 />
               </Field>
               <Field label="VAT / Tax number">

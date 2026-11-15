@@ -49,7 +49,7 @@ export async function PUT(request: Request, { params }: Params) {
     "taxRate", "globalDiscountPercent", "taxInclusive", "depositPercent",
     "notes", "paymentTerms",
     "clientName", "clientEmail", "clientPhone", "clientCompany",
-    "clientAddress", "clientVatNumber",
+    "clientAddress", "clientVatNumber", "clientWebsite",
   ];
   const data: Record<string, unknown> = { updatedAt: new Date().toISOString() };
   for (const field of allowedFields) {
@@ -97,6 +97,7 @@ export async function PUT(request: Request, { params }: Params) {
       data.clientCompany = newClient.company;
       data.clientAddress = newClient.address;
       data.clientVatNumber = newClient.vatNumber;
+      data.clientWebsite = newClient.website;
     }
   }
 

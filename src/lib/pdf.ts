@@ -1,7 +1,7 @@
 import { jsPDF, GState } from "jspdf";
 import autoTable from "jspdf-autotable";
 import type { BusinessProfile, InvoiceDocument } from "./types";
-import { computeTotals, formatCurrency, formatDate } from "./format";
+import { computeTotals, displayWebsite, formatCurrency, formatDate, websiteHref } from "./format";
 import { can } from "./features";
 
 interface PdfOptions {
@@ -195,18 +195,25 @@ export function generateInvoicePdf({ business, doc, user }: PdfOptions): jsPDF {
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(9);
   pdf.setTextColor(90, 90, 90);
+  const clientWebsiteDisplay = client.website ? displayWebsite(client.website) : "";
   const clientLines = [
     client.company ? client.name : "",
     client.address,
     client.email,
     client.phone,
+    clientWebsiteDisplay,
     client.vatNumber ? `VAT: ${client.vatNumber}` : "",
   ].filter((line): line is string => Boolean(line));
   rightY += 2;
+  const websiteRects: { x: number; y: number; w: number }[] = [];
   clientLines.forEach((line) => {
     const wrapped = pdf.splitTextToSize(line, rightColW);
     wrapped.forEach((wLine: string) => {
       pdf.text(wLine, rightColX, rightY);
+      if (line === clientWebsiteDisplay) {
+        // remember where the website text sits so it can become a clickable link
+        websiteRects.push({ x: rightColX, y: rightY - 8, w: pdf.getTextWidth(wLine) });
+      }
       rightY += 12;
     });
   });
@@ -217,6 +224,12 @@ export function generateInvoicePdf({ business, doc, user }: PdfOptions): jsPDF {
   pdf.setDrawColor(210, 210, 210);
   pdf.setLineWidth(1);
   pdf.line(dividerX, partiesTop - 4, dividerX, partiesTop + partiesH + 2);
+
+  // Website link overlay (after the divider so the rects sit on top)
+  if (client.website) {
+    const href = websiteHref(client.website);
+    websiteRects.forEach((r) => pdf.link(r.x, r.y, r.w, 10, { url: href }));
+  }
 
   // Rule closing band 2 — the items table starts below it
   const rule2Y = partiesTop + partiesH + 12;

@@ -65,6 +65,7 @@ model Client {
   company   String?
   address   String?
   vatNumber String?
+  website   String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -92,6 +93,7 @@ model InvoiceDocument {
   clientCompany   String?
   clientAddress   String?
   clientVatNumber String?
+  clientWebsite   String?
 
   issueDate  String
   dueDate    String

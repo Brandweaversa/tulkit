@@ -61,6 +61,7 @@ export function serializeClient(c: PrismaClient): Client {
     company: c.company ?? undefined,
     address: c.address ?? undefined,
     vatNumber: c.vatNumber ?? undefined,
+    website: c.website ?? undefined,
   };
 }
 
@@ -81,6 +82,7 @@ export function serializeDoc(
       company: doc.clientCompany ?? undefined,
       address: doc.clientAddress ?? undefined,
       vatNumber: doc.clientVatNumber ?? undefined,
+      website: doc.clientWebsite ?? undefined,
     },
     issueDate: doc.issueDate,
     dueDate: doc.dueDate,

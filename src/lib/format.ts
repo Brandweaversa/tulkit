@@ -24,6 +24,18 @@ export function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+// Client website helpers — users may type "www.example.co.za",
+// "https://example.co.za" or "example.co.za". Display strips the protocol;
+// links always get one so the browser treats it as a URL, not a path.
+export function displayWebsite(url: string): string {
+  return url.trim().replace(/^https?:\/\//i, "").replace(/\/+$/, "");
+}
+
+export function websiteHref(url: string): string {
+  const t = url.trim();
+  return /^https?:\/\//i.test(t) ? t : `https://${t}`;
+}
+
 export function addDaysISO(iso: string, days: number): string {
   const d = new Date(iso);
   d.setDate(d.getDate() + days);

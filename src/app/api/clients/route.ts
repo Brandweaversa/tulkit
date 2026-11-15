@@ -58,6 +58,7 @@ export async function POST(request: Request) {
       company: body.company ? String(body.company) : null,
       address: body.address ? String(body.address) : null,
       vatNumber: body.vatNumber ? String(body.vatNumber) : null,
+      website: body.website ? String(body.website) : null,
     },
   });
 

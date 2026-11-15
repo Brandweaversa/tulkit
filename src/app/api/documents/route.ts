@@ -68,6 +68,7 @@ export async function POST(request: Request) {
     company: string | null;
     address: string | null;
     vatNumber: string | null;
+    website: string | null;
   };
 
   if (clientId) {
@@ -85,6 +86,7 @@ export async function POST(request: Request) {
       company: client.company,
       address: client.address,
       vatNumber: client.vatNumber,
+      website: client.website,
     };
   } else {
     // No client specified — use the first existing client (if any)
@@ -101,6 +103,7 @@ export async function POST(request: Request) {
         company: firstClient.company,
         address: firstClient.address,
         vatNumber: firstClient.vatNumber,
+        website: firstClient.website,
       };
     } else {
       // No clients exist — ask the user to create one first
@@ -144,6 +147,7 @@ export async function POST(request: Request) {
         clientCompany: clientData.company,
         clientAddress: clientData.address,
         clientVatNumber: clientData.vatNumber,
+        clientWebsite: clientData.website,
         issueDate: todayISO(),
         dueDate: addDaysISO(todayISO(), 7),
         taxRate: business.defaultTaxRate,

@@ -40,6 +40,7 @@ export async function PUT(request: Request, { params }: Params) {
       company: body.company ?? existing.company,
       address: body.address ?? existing.address,
       vatNumber: body.vatNumber ?? existing.vatNumber,
+      website: body.website ?? existing.website,
     },
   });
 

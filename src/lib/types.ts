@@ -19,6 +19,7 @@ export interface Client {
   company?: string;
   address?: string;
   vatNumber?: string;
+  website?: string;
 }
 
 export type UserRole = "admin" | "user";

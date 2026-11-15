@@ -1,7 +1,7 @@
 "use client";
 
 import type { BusinessProfile, InvoiceDocument } from "@/lib/types";
-import { computeTotals, formatCurrency, formatDate } from "@/lib/format";
+import { computeTotals, displayWebsite, formatCurrency, formatDate, websiteHref } from "@/lib/format";
 
 interface Props {
   business: BusinessProfile;
@@ -104,6 +104,18 @@ export function InvoicePreview({ business, doc, showWatermark }: Props) {
               )}
               {client.email && <div className="break-words">{client.email}</div>}
               {client.phone && <div>{client.phone}</div>}
+              {client.website && (
+                <div className="break-words">
+                  <a
+                    href={websiteHref(client.website)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:underline"
+                  >
+                    {displayWebsite(client.website)}
+                  </a>
+                </div>
+              )}
               {client.vatNumber && <div>VAT: {client.vatNumber}</div>}
             </div>
           </div>
