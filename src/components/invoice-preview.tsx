@@ -21,81 +21,96 @@ export function InvoicePreview({ business, doc, showWatermark }: Props) {
       <div className="h-1.5" style={{ backgroundColor: accent }} />
 
       <div className="p-6 sm:p-8 space-y-6">
-        {/* Header — two columns, no overlap */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-          {/* Left: business info */}
-          <div className="space-y-3 min-w-0">
+        {/* Header band 1 — logo (left) + document meta (right), mirrors the PDF header */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          {/* Left: logo */}
+          <div className="shrink-0 min-w-0">
             {business.logoDataUrl ? (
-              <div className="mb-2">
-                <img
-                  src={business.logoDataUrl}
-                  alt="Logo"
-                  className="max-h-16 max-w-[180px] w-auto object-contain"
-                  style={{ aspectRatio: "auto" }}
-                />
-              </div>
+              <img
+                src={business.logoDataUrl}
+                alt="Logo"
+                className="max-h-[140px] max-w-[140px] w-auto object-contain"
+                style={{ aspectRatio: "auto" }}
+              />
             ) : null}
-            <div className="min-w-0">
-              <h2 className="text-lg font-bold break-words">{business.name}</h2>
-              <div className="text-xs text-neutral-500 space-y-1 mt-1">
-                {business.address && (
-                  <div className="break-words whitespace-pre-wrap">{business.address}</div>
-                )}
-                {business.email && (
-                  <div className="break-words">{business.email}</div>
-                )}
-                {business.phone && <div>{business.phone}</div>}
-                {business.vatNumber && <div>VAT: {business.vatNumber}</div>}
-              </div>
-            </div>
           </div>
 
-          {/* Right: title + number + dates */}
-          <div className="text-left sm:text-right space-y-1 min-w-0">
+          {/* Right: title, number and dates — right-aligned like the PDF, with
+              each date shown as a small grey label above a bold value */}
+          <div className="text-left sm:text-right min-w-0">
             <div
-              className="text-2xl font-extrabold tracking-tight"
+              className="text-2xl font-bold tracking-tight"
               style={{ color: accent }}
             >
               {isInvoice ? "INVOICE" : "QUOTE"}
             </div>
-            <div className="text-sm font-medium text-neutral-700">{doc.number}</div>
-            <div className="text-xs text-neutral-500 mt-2 space-y-1">
+            <div className="text-xs font-medium text-neutral-600 mt-0.5">
+              {doc.number}
+            </div>
+            <div className="mt-4 space-y-2">
               <div>
-                <span className="text-neutral-400">Issue Date: </span>
-                <span className="font-medium text-neutral-700">
+                <div className="text-[10px] text-neutral-400">Issue Date</div>
+                <div className="text-xs font-bold text-neutral-800">
                   {formatDate(doc.issueDate)}
-                </span>
+                </div>
               </div>
               <div>
-                <span className="text-neutral-400">
-                  {isInvoice ? "Due Date: " : "Valid Until: "}
-                </span>
-                <span className="font-medium text-neutral-700">
+                <div className="text-[10px] text-neutral-400">
+                  {isInvoice ? "Due Date" : "Valid Until"}
+                </div>
+                <div className="text-xs font-bold text-neutral-800">
                   {formatDate(doc.dueDate)}
-                </span>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Bill To — full width, clear separation */}
-        <div className="border-t border-neutral-100 pt-4">
-          <div className="text-[10px] font-semibold tracking-wider text-neutral-400 uppercase">
-            {isInvoice ? "Bill To" : "Quote For"}
+        {/* Rule closing band 1 */}
+        <div className="border-t border-neutral-200" />
+
+        {/* Header band 2 — business details (left) | BILL TO / QUOTE FOR (right)
+            with a vertical divider, mirrors the PDF two-column parties block */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-0">
+          {/* Left column: business details */}
+          <div className="min-w-0 sm:pr-6">
+            <div className="text-base font-bold text-neutral-900 break-words">
+              {business.name}
+            </div>
+            <div className="text-xs text-neutral-500 space-y-1 mt-1">
+              {business.address && (
+                <div className="break-words whitespace-pre-wrap">{business.address}</div>
+              )}
+              {business.email && (
+                <div className="break-words">{business.email}</div>
+              )}
+              {business.phone && <div>{business.phone}</div>}
+              {business.vatNumber && <div>VAT: {business.vatNumber}</div>}
+            </div>
           </div>
-          <div className="mt-1 font-semibold text-neutral-900 break-words">
-            {client.company || client.name}
-          </div>
-          <div className="text-xs text-neutral-600 space-y-1 mt-1">
-            {client.company && <div className="break-words">{client.name}</div>}
-            {client.address && (
-              <div className="break-words whitespace-pre-wrap">{client.address}</div>
-            )}
-            {client.email && <div className="break-words">{client.email}</div>}
-            {client.phone && <div>{client.phone}</div>}
-            {client.vatNumber && <div>VAT: {client.vatNumber}</div>}
+
+          {/* Right column: client details, divider on sm+ like the PDF */}
+          <div className="min-w-0 sm:border-l sm:border-neutral-200 sm:pl-6">
+            <div className="text-[10px] font-semibold tracking-wider text-neutral-400 uppercase">
+              {isInvoice ? "Bill To" : "Quote For"}
+            </div>
+            <div className="mt-1 text-base font-bold text-neutral-900 break-words">
+              {client.company || client.name}
+            </div>
+            <div className="text-xs text-neutral-500 space-y-1 mt-1">
+              {client.company && <div className="break-words">{client.name}</div>}
+              {client.address && (
+                <div className="break-words whitespace-pre-wrap">{client.address}</div>
+              )}
+              {client.email && <div className="break-words">{client.email}</div>}
+              {client.phone && <div>{client.phone}</div>}
+              {client.vatNumber && <div>VAT: {client.vatNumber}</div>}
+            </div>
           </div>
         </div>
+
+        {/* Rule closing band 2 — items table follows below */}
+        <div className="border-t border-neutral-200" />
 
         {/* Items table */}
         <div className="overflow-x-auto">
