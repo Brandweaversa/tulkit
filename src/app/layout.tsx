@@ -36,7 +36,7 @@ export const metadata: Metadata = {
   },
   appleWebApp: {
     capable: true,
-    title: "Tulkit",
+    title: "Brandweaver",
     statusBarStyle: "default",
   },
   openGraph: {
