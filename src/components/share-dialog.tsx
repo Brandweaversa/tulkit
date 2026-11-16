@@ -190,6 +190,29 @@ export function ShareDialog({
   // send it from any app — WhatsApp, iMessage, Telegram, Outlook, anything
   // installed. Falls back silently: the button simply isn't rendered when
   // the browser can't share files.
+  // Hands the prepared PDF to the OS share sheet. Returns true when the
+  // sheet was handed the file (including when the user closes it without
+  // sending — that's not an error) and false when nothing was shared.
+  async function shareSheetWithPdf(title: string, text: string): Promise<boolean> {
+    if (!pdfFile) {
+      toast({
+        title: "Preparing PDF…",
+        description: "One moment — then tap Send again.",
+      });
+      return false;
+    }
+    try {
+      await navigator.share({ files: [pdfFile], title, text });
+      if (doc.status === "draft") markAs(doc.id, "sent");
+      return true;
+    } catch (e) {
+      if ((e as DOMException)?.name === "AbortError") return true;
+      console.error(e);
+      toast({ title: "Could not share PDF", variant: "destructive" });
+      return false;
+    }
+  }
+
   async function handleSharePdf() {
     if (!canDownloadPdf) {
       toast({
@@ -199,25 +222,10 @@ export function ShareDialog({
       });
       return;
     }
-    if (!pdfFile) {
-      toast({
-        title: "Preparing PDF…",
-        description: "One moment — then tap Share PDF again.",
-      });
-      return;
-    }
     const text = activeMode === "reminder" ? editedReminder : editedMessage;
     const title =
       activeMode === "reminder" ? editedReminderSubject : editedSubject;
-    try {
-      await navigator.share({ files: [pdfFile], title, text });
-      if (doc.status === "draft") markAs(doc.id, "sent");
-    } catch (e) {
-      // Closing the share sheet without sending is not an error.
-      if ((e as DOMException)?.name === "AbortError") return;
-      console.error(e);
-      toast({ title: "Could not share PDF", variant: "destructive" });
-    }
+    await shareSheetWithPdf(title, text);
   }
 
   async function handleWhatsApp() {
@@ -233,13 +241,6 @@ export function ShareDialog({
     // user picks WhatsApp — the file arrives attached. wa.me links can only
     // carry text, so this is the only way a web page can attach a PDF.
     if (canDownloadPdf && canShareFiles) {
-      if (!pdfFile) {
-        toast({
-          title: "Preparing PDF…",
-          description: "One moment — then tap Send again.",
-        });
-        return;
-      }
       const text = activeMode === "reminder" ? editedReminder : editedMessage;
       const title =
         activeMode === "reminder" ? editedReminderSubject : editedSubject;
@@ -255,15 +256,7 @@ export function ShareDialog({
       } catch {
         // Clipboard unavailable — the user can still copy via "Copy summary".
       }
-      try {
-        await navigator.share({ files: [pdfFile], title, text });
-        if (doc.status === "draft") markAs(doc.id, "sent");
-      } catch (e) {
-        // Closing the share sheet without sending is not an error.
-        if ((e as DOMException)?.name === "AbortError") return;
-        console.error(e);
-        toast({ title: "Could not share PDF", variant: "destructive" });
-      }
+      await shareSheetWithPdf(title, text);
       return;
     }
     // Fallback (no file sharing available): open the chat directly. WhatsApp
@@ -293,7 +286,32 @@ export function ShareDialog({
     if (doc.status === "draft") markAs(doc.id, "sent");
   }
 
-  function handleEmail() {
+  // Preferred email path: the OS share sheet with the real PDF attached —
+  // mail apps (Gmail, Outlook, Apple Mail) honour both the file and the
+  // message there. mailto: links can never carry attachments, so this is
+  // the only way a web page can pre-attach a PDF to an email.
+  async function handleEmail() {
+    if (!canEmail) {
+      toast({
+        title: "Pro feature",
+        description: "Email sharing requires a Pro subscription.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (canDownloadPdf && canShareFiles) {
+      const text = activeMode === "reminder" ? editedReminder : editedMessage;
+      const title =
+        activeMode === "reminder" ? editedReminderSubject : editedSubject;
+      await shareSheetWithPdf(title, text);
+      return;
+    }
+    await handleEmailTextOnly();
+  }
+
+  // Text-only fallback: mailto link with recipient, subject and body —
+  // the user attaches the PDF in their mail app themselves.
+  async function handleEmailTextOnly() {
     if (!canEmail) {
       toast({
         title: "Pro feature",
@@ -542,6 +560,30 @@ export function ShareDialog({
           <TabsContent value="email" className="space-y-2 mt-3">
             {!canEmail ? (
               <LockedNotice feature="Email sharing" />
+            ) : canDownloadPdf && canShareFiles ? (
+              <>
+                <Button onClick={handleEmail} className="w-full">
+                  {pdfFile ? (
+                    <>
+                      <Share2 className="h-4 w-4 mr-2" /> Email with PDF attached
+                    </>
+                  ) : (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Preparing PDF…
+                    </>
+                  )}
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleEmailTextOnly} className="w-full">
+                  <Mail className="h-4 w-4 mr-2" /> Open email client (text only)
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  The share sheet opens with the PDF attached and your message
+                  included — pick your mail app and the compose window fills
+                  in. &ldquo;Text only&rdquo; opens{" "}
+                  {editedEmail || "the client"}&apos;s address with subject and
+                  body pre-filled instead, but then you attach the PDF by hand.
+                </p>
+              </>
             ) : (
               <>
                 <Label>Send to (client email)</Label>
