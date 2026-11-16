@@ -21,8 +21,6 @@ import {
   Copy,
   Check,
   Phone,
-  Info,
-  Lock,
   Crown,
   Share2,
   BellRing,
@@ -213,21 +211,6 @@ export function ShareDialog({
     }
   }
 
-  async function handleSharePdf() {
-    if (!canDownloadPdf) {
-      toast({
-        title: "Pro feature",
-        description: "PDF sharing requires a Pro subscription.",
-        variant: "destructive",
-      });
-      return;
-    }
-    const text = activeMode === "reminder" ? editedReminder : editedMessage;
-    const title =
-      activeMode === "reminder" ? editedReminderSubject : editedSubject;
-    await shareSheetWithPdf(title, text);
-  }
-
   async function handleWhatsApp() {
     if (!canWhatsApp) {
       toast({
@@ -383,7 +366,7 @@ export function ShareDialog({
           <DialogDescription>
             {activeMode === "reminder"
               ? "A gentle payment nudge via WhatsApp or email."
-              : "Send the PDF with a pre-filled message via WhatsApp or email."}
+              : "The PDF is attached automatically — pick WhatsApp, email or any app from your share menu."}
           </DialogDescription>
         </DialogHeader>
 
@@ -409,77 +392,14 @@ export function ShareDialog({
           </div>
         )}
 
-        {/* Native share sheet — shown only when the browser can share files.
-          Locked for free users so the upsell stays visible, like the other
-          PDF features. */}
-        {canDownloadPdf && canShareFiles ? (
-          <Button
-            onClick={handleSharePdf}
-            disabled={!pdfFile}
-            className="w-full bg-[#0E7C9C] hover:bg-[#0A6582] text-white"
-          >
-            {pdfFile ? (
-              <>
-                <Share2 className="h-4 w-4 mr-2" />
-                Share PDF
-              </>
-            ) : (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Preparing PDF…
-              </>
-            )}
-          </Button>
-        ) : (
-          !canDownloadPdf && (
-            <Button
-              onClick={handleSharePdf}
-              variant="outline"
-              className="w-full bg-muted text-muted-foreground"
-            >
-              <Share2 className="h-4 w-4 mr-2" />
-              Share PDF
-              <Lock className="h-3 w-3 ml-1" />
-            </Button>
-          )
-        )}
-
-        {/* Primary actions */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          <FeatureButton
-            onClick={handleDownload}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white"
-            icon={<Download className="h-4 w-4 mr-2" />}
-            label="PDF"
-            allowed={canDownloadPdf}
-          />
-          <FeatureButton
-            onClick={handleWhatsApp}
-            className="bg-[#25D366] hover:bg-[#1FB855] text-white"
-            icon={<MessageCircle className="h-4 w-4 mr-2" />}
-            label="WhatsApp"
-            allowed={canWhatsApp}
-          />
-          <FeatureButton
-            onClick={handleEmail}
-            icon={<Mail className="h-4 w-4 mr-2" />}
-            label="Email"
-            allowed={canEmail}
-          />
-        </div>
-
-        <div className="rounded-md bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 p-3 text-xs text-amber-800 dark:text-amber-200 flex gap-2">
-          <Info className="h-4 w-4 shrink-0 mt-0.5" />
-          <div>
-            {activeMode === "reminder" ?
-              canDownloadPdf && canShareFiles
-                ? "Share PDF opens your phone's share menu with the invoice attached — pick WhatsApp, email or any installed app."
-                : "The reminder message opens pre-filled in WhatsApp or your email client. Attach the PDF if the client has lost the original."
-              : canDownloadPdf && canShareFiles
-                ? "Share PDF opens your phone's share menu with the document attached — pick WhatsApp, email or any installed app."
-                : "Download the PDF first, then share via WhatsApp or email. Your message will be pre-filled — just attach the PDF."}
-          </div>
-        </div>
+        {/* Download the PDF file itself. Sharing lives in the tabs below —
+          each opens the OS share sheet with the file attached. */}
+        <Button
+          onClick={handleDownload}
+          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+        >
+          <Download className="h-4 w-4 mr-2" /> Download PDF
+        </Button>
 
         <Tabs defaultValue="message">
           <TabsList className="grid grid-cols-3">
@@ -633,32 +553,6 @@ export function ShareDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function FeatureButton({
-  onClick,
-  className,
-  icon,
-  label,
-  allowed,
-}: {
-  onClick: () => void;
-  className?: string;
-  icon: React.ReactNode;
-  label: string;
-  allowed: boolean;
-}) {
-  return (
-    <Button
-      onClick={onClick}
-      className={allowed ? className : "bg-muted text-muted-foreground"}
-      variant={allowed ? "default" : "outline"}
-    >
-      {icon}
-      {label}
-      {!allowed && <Lock className="h-3 w-3 ml-1" />}
-    </Button>
   );
 }
 
