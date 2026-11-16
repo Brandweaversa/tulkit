@@ -277,8 +277,53 @@ export function AuthForm() {
           "linear-gradient(135deg, #B0E0E6 0%, #E6F2F5 50%, #F0F7FA 100%)",
       }}
     >
-      <div className="w-full max-w-md space-y-6">
-        <div className="text-center space-y-3">
+      {/* Desktop: marketing column | thin divider | form. Mobile: form only. */}
+      <div className="w-full max-w-6xl flex items-center justify-center">
+        {/* Marketing column — desktop only */}
+        <div className="hidden lg:flex w-[40%] max-w-md flex-col gap-6">
+          <img
+            src="/tulkit-design.png"
+            alt="Tulkit"
+            className="w-full max-w-sm h-auto"
+            onError={(e) => {
+              e.currentTarget.style.display = "none";
+            }}
+          />
+          <div className="space-y-1.5">
+            <h1 className="text-3xl font-bold tracking-tight text-neutral-900">
+              Get paid faster. Work smarter.
+            </h1>
+            <h2 className="text-lg font-normal text-neutral-600">
+              spend more time growing your business.
+            </h2>
+          </div>
+          <ul className="space-y-3">
+            {[
+              "Share invoice directly to WhatsApp instantly.",
+              "Make it easy for your customers to pay with Tulkit.",
+              "Track payments and keep your cash flow organised.",
+              "Get paid with less hassle.",
+            ].map((point) => (
+              <li
+                key={point}
+                className="flex items-start gap-3 text-sm text-neutral-700"
+              >
+                <CheckCircle2 className="h-5 w-5 shrink-0 text-[#0E7C9C]" />
+                <span>{point}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* Thin vertical divider — desktop only */}
+        <div
+          className="hidden lg:block h-80 w-px bg-neutral-300 mx-10"
+          aria-hidden="true"
+        />
+
+        {/* Form column — the only column shown on mobile */}
+        <div className="w-full max-w-md space-y-6">
+        <div className="text-center space-y-3 lg:hidden">
           <div
             className="inline-flex items-center justify-center rounded-xl px-4 py-3"
             style={{ backgroundColor: "#B0E0E6" }}
@@ -286,7 +331,7 @@ export function AuthForm() {
             <img src="/tulkit.png" alt="Tulkit" className="h-12 w-auto" />
           </div>
           <div>
-            
+
             <p className="text-sm text-neutral-600">Invoices &amp; Quotes made easy</p>
           </div>
         </div>
@@ -562,6 +607,7 @@ export function AuthForm() {
           </a>
         </div>
         )}
+        </div>
       </div>
     </div>
   );
