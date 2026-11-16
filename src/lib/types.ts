@@ -36,7 +36,6 @@ export const FEATURE_KEYS = [
   "unlimited_documents",
   "unlimited_clients",
   "convert_quote_to_invoice",
-  "no_watermark",
 ] as const;
 
 export type FeatureKey = (typeof FEATURE_KEYS)[number];
@@ -50,7 +49,6 @@ export const FEATURE_LABELS: Record<FeatureKey, string> = {
   unlimited_documents: "Unlimited documents",
   unlimited_clients: "Unlimited clients",
   convert_quote_to_invoice: "Convert quotes to invoices",
-  no_watermark: "Remove watermark",
 };
 
 // Free tier limits

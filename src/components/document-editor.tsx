@@ -108,7 +108,6 @@ export function DocumentEditor({ docId, onBack }: Props) {
         allocatedFeatures: authUser.allocatedFeatures,
       }
     : null;
-  const showWatermark = !can(userCtx, "no_watermark");
   const canShareWhatsApp = can(userCtx, "whatsapp_share");
   const canShareEmail = can(userCtx, "email_share");
   const canDownloadPdf = can(userCtx, "pdf_download");
@@ -650,7 +649,6 @@ export function DocumentEditor({ docId, onBack }: Props) {
             <InvoicePreview
               business={business}
               doc={doc as InvoiceDocument}
-              showWatermark={showWatermark}
             />
           </div>
         </div>

@@ -156,7 +156,7 @@ function TrialReminderDialog({
             <ul className="text-sm space-y-1 text-muted-foreground">
               <li>✅ Unlimited documents</li>
               <li>✅ Unlimited clients</li>
-              <li>✅ PDF download (no watermark)</li>
+              <li>✅ PDF download</li>
               <li>✅ WhatsApp & Email sharing</li>
               <li>✅ Custom logo & branding</li>
               <li>✅ Convert quotes to invoices</li>

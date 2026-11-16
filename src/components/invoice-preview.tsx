@@ -6,10 +6,9 @@ import { computeTotals, displayWebsite, docHasTax, formatCurrency, formatDate, w
 interface Props {
   business: BusinessProfile;
   doc: InvoiceDocument;
-  showWatermark?: boolean;
 }
 
-export function InvoicePreview({ business, doc, showWatermark }: Props) {
+export function InvoicePreview({ business, doc }: Props) {
   const totals = computeTotals(doc);
   const isInvoice = doc.type === "invoice";
   const accent = business.accentColor || "#0E7C9C";
@@ -270,17 +269,6 @@ export function InvoicePreview({ business, doc, showWatermark }: Props) {
           </div>
         )}
       </div>
-
-      {/* Watermark overlay (free users) */}
-      {showWatermark && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div
-            className="text-6xl font-bold text-neutral-300 opacity-20 select-none rotate-45 whitespace-nowrap"
-          >
-            FREE PLAN
-          </div>
-        </div>
-      )}
 
       <div className="border-t px-6 py-3 space-y-1.5">
         <div className="text-center text-[10px] text-neutral-400 break-words">

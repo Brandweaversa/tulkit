@@ -65,6 +65,7 @@ export function ShareDialog({
   initialMode = "share",
 }: Props) {
   const business = useStore((s) => s.business);
+  const authUser = useStore((s) => s.authUser);
   const markAs = useStore((s) => s.markAs);
   const [copied, setCopied] = useState(false);
   const [editedPhone, setEditedPhone] = useState(doc.clientSnapshot.phone ?? "");
@@ -138,8 +139,18 @@ export function ShareDialog({
 
   // Contact overrides from the WhatsApp/Email tabs — without this, edits to
   // the phone/email fields were never actually used by the share links.
+  // user feeds feature gating inside the PDF (banking_details) — without it
+  // Pro users' shared PDFs silently lost their banking details.
+  const pdfUser = authUser
+    ? {
+        role: authUser.role,
+        subscriptionStatus: authUser.subscriptionStatus,
+        allocatedFeatures: authUser.allocatedFeatures as unknown as string[],
+      }
+    : null;
   const ctx = {
     business,
+    user: pdfUser,
     doc: {
       ...doc,
       clientSnapshot: {
@@ -148,7 +159,7 @@ export function ShareDialog({
         email: editedEmail || doc.clientSnapshot.email,
       },
     },
-  } as { business: BusinessProfile; doc: InvoiceDocument };
+  } as { business: BusinessProfile; doc: InvoiceDocument; user: typeof pdfUser };
 
   // Reminders only make sense for invoices that are actually out.
   const reminderEligible =

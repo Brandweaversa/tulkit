@@ -1,4 +1,4 @@
-import { jsPDF, GState } from "jspdf";
+import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import type { BusinessProfile, InvoiceDocument } from "./types";
 import { computeTotals, displayWebsite, docHasTax, formatCurrency, formatDate, websiteHref } from "./format";
@@ -7,7 +7,7 @@ import { can } from "./features";
 interface PdfOptions {
   business: BusinessProfile;
   doc: InvoiceDocument;
-  // Auth context for feature gating (watermark if no no_watermark feature)
+  // Auth context for feature gating (e.g. banking_details on invoices).
   user?: {
     role: string;
     subscriptionStatus: string;
@@ -41,18 +41,6 @@ export function generateInvoicePdf({ business, doc, user, tulkitIconDataUrl }: P
   const totals = computeTotals(doc);
   const isInvoice = doc.type === "invoice";
   const title = isInvoice ? "INVOICE" : "QUOTE";
-
-  // Determine if we should show watermark (free users without no_watermark feature)
-  const showWatermark = !can(
-    user
-      ? {
-          role: user.role,
-          subscriptionStatus: user.subscriptionStatus,
-          allocatedFeatures: user.allocatedFeatures as never,
-        }
-      : null,
-    "no_watermark",
-  );
 
   // ----- Header band (accent colour) -----
   pdf.setFillColor(accent[0], accent[1], accent[2]);
@@ -518,20 +506,6 @@ export function generateInvoicePdf({ business, doc, user, tulkitIconDataUrl }: P
     pdf.setTextColor(60, 60, 60);
     const wrappedNotes = pdf.splitTextToSize(doc.notes, pageW - margin * 2);
     pdf.text(wrappedNotes, margin, afterTableY);
-  }
-
-  // ----- Watermark (free users) -----
-  if (showWatermark) {
-    pdf.saveGraphicsState();
-    pdf.setGState(new GState({ opacity: 0.12 }));
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(64);
-    pdf.setTextColor(150, 150, 150);
-    pdf.text("FREE PLAN", pageW / 2, pageH / 2, {
-      align: "center",
-      angle: 45,
-    });
-    pdf.restoreGraphicsState();
   }
 
   // ----- Footer -----
