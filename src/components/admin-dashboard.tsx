@@ -32,6 +32,7 @@ import {
   Activity,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FEATURE_KEYS, FEATURE_LABELS, FREE_TIER_LIMITS } from "@/lib/types";
 import type { FeatureKey } from "@/lib/types";
 
@@ -125,6 +126,8 @@ export function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [subscribeUser, setSubscribeUser] = useState<AdminUser | null>(null);
   const [detailUserId, setDetailUserId] = useState<string | null>(null);
+  const [revokeUserId, setRevokeUserId] = useState<string | null>(null);
+  const [pendingDeleteUser, setPendingDeleteUser] = useState<{ id: string; email: string; impact: string } | null>(null);
 
   async function loadData() {
     try {
@@ -181,45 +184,49 @@ export function AdminDashboard() {
     }
   }
 
-  async function handleRevoke(userId: string) {
-    if (!confirm("Revoke this user's subscription?")) return;
+  function handleRevoke(userId: string) {
+    setRevokeUserId(userId);
+  }
+
+  async function doRevoke() {
+    if (!revokeUserId) return;
     try {
-      await fetch(`/api/admin/users/${userId}/subscribe`, { method: "DELETE" });
+      await fetch(`/api/admin/users/${revokeUserId}/subscribe`, { method: "DELETE" });
       toast({ title: "Subscription revoked" });
       loadData();
     } catch {
       toast({ title: "Failed to revoke", variant: "destructive" });
     }
+    setRevokeUserId(null);
   }
 
   async function handleDeleteUser(user: AdminUser) {
     // Build an impact summary from the detail endpoint so the admin sees
-    // exactly how much data this delete will destroy.
-    let impact = "\n- All their clients\n- All their invoices & quotes";
+    // exactly how much data this delete will destroy — before confirming.
+    let impact = "All their clients and all their invoices & quotes";
     try {
       const detailRes = await fetch(`/api/admin/users/${user.id}`);
       if (detailRes.ok) {
         const detail = await detailRes.json();
-        impact = `\n- ${detail.usage.clientCount} client${detail.usage.clientCount === 1 ? "" : "s"}\n- ${detail.usage.totalDocuments} invoice${detail.usage.invoices === 1 ? "" : "s"} & quote${detail.usage.quotes === 1 ? "" : "s"}`;
+        impact = `${detail.usage.clientCount} client${detail.usage.clientCount === 1 ? "" : "s"} and ${detail.usage.totalDocuments} invoice${detail.usage.invoices === 1 ? "" : "s"} & quote${detail.usage.quotes === 1 ? "" : "s"}`;
       }
     } catch {
       // Keep the generic impact text if the detail fetch fails
     }
+    setPendingDeleteUser({ id: user.id, email: user.email, impact });
+  }
 
-    const confirmed = confirm(
-      `Delete ${user.email}?\n\nThis permanently removes:\n- Their account${impact}\n\nThis cannot be undone.`,
-    );
-    if (!confirmed) return;
-
+  async function doDeleteUser() {
+    if (!pendingDeleteUser) return;
     try {
-      const res = await fetch(`/api/admin/users/${user.id}`, { method: "DELETE" });
+      const res = await fetch(`/api/admin/users/${pendingDeleteUser.id}`, { method: "DELETE" });
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.error || "Failed to delete user");
       }
       toast({
         title: "User deleted",
-        description: `${user.email} and all their data have been removed.`,
+        description: `${pendingDeleteUser.email} and all their data have been removed.`,
       });
       loadData();
     } catch (e) {
@@ -229,6 +236,7 @@ export function AdminDashboard() {
         variant: "destructive",
       });
     }
+    setPendingDeleteUser(null);
   }
 
   if (loading) {
@@ -446,6 +454,28 @@ export function AdminDashboard() {
           onClose={() => setSubscribeUser(null)}
         />
       )}
+
+      {/* Revoke subscription confirmation */}
+      <ConfirmDialog
+        open={!!revokeUserId}
+        onOpenChange={(o) => { if (!o) setRevokeUserId(null); }}
+        title="Revoke this user's subscription?"
+        description="Pro access ends immediately; their data is untouched."
+        confirmLabel="Revoke"
+        destructive
+        onConfirm={doRevoke}
+      />
+
+      {/* Delete user confirmation */}
+      <ConfirmDialog
+        open={!!pendingDeleteUser}
+        onOpenChange={(o) => { if (!o) setPendingDeleteUser(null); }}
+        title={`Delete ${pendingDeleteUser?.email ?? ""}?`}
+        description={`This permanently removes their account and ${pendingDeleteUser?.impact ?? "all their data"}. This cannot be undone.`}
+        confirmLabel="Delete user"
+        destructive
+        onConfirm={doDeleteUser}
+      />
     </div>
   );
 }

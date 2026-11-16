@@ -20,6 +20,7 @@ import { useStore } from "@/lib/store";
 import type { Client } from "@/lib/types";
 import { computeTotals, displayWebsite, effectiveStatus, formatCurrency, formatDate, websiteHref } from "@/lib/format";
 import { toast } from "@/hooks/use-toast";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 const EMPTY_CLIENT: Client = {
   id: "",
@@ -47,6 +48,49 @@ export function ClientsPanel({ onViewDocs }: Props) {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
+  const [pendingDelete, setPendingDelete] = useState<Client | null>(null);
+  const [pendingForce, setPendingForce] = useState<{ id: string; name: string; docCount: number } | null>(null);
+
+  // Attempt the normal delete; when the client still has linked documents
+  // (409), open the force-delete dialog instead of a native confirm.
+  async function doDeleteClient(c: Client) {
+    const success = await deleteClient(c.id);
+    if (success) {
+      toast({ title: "Client deleted" });
+    } else {
+      try {
+        const res = await fetch(`/api/clients/${c.id}`);
+        if (res.status === 409) {
+          const data = await res.json();
+          setPendingForce({ id: c.id, name: c.name, docCount: data.docCount });
+        } else {
+          toast({ title: "Could not delete client", variant: "destructive" });
+        }
+      } catch {
+        toast({ title: "Could not delete client", variant: "destructive" });
+      }
+    }
+    setPendingDelete(null);
+  }
+
+  async function doForceDelete() {
+    if (!pendingForce) return;
+    try {
+      const res = await fetch(`/api/clients/${pendingForce.id}?force=true`, { method: "DELETE" });
+      if (res.ok) {
+        toast({ title: "Client and all linked documents deleted" });
+        // Remove from local state
+        useStore.setState((s) => ({
+          clients: s.clients.filter((cl) => cl.id !== pendingForce.id),
+          documents: s.documents.filter((d) => d.clientId !== pendingForce.id),
+        }));
+      } else {
+        toast({ title: "Force delete failed", variant: "destructive" });
+      }
+    } finally {
+      setPendingForce(null);
+    }
+  }
 
   // Per-client money facts, computed once from the documents in the store.
   const stats = useMemo(() => {
@@ -208,44 +252,7 @@ export function ClientsPanel({ onViewDocs }: Props) {
                       variant="ghost"
                       size="icon"
                       className="h-7 w-7 text-destructive"
-                      onClick={async () => {
-                        if (!confirm(`Delete ${c.name}?`)) return;
-                        const success = await deleteClient(c.id);
-                        if (success) {
-                          toast({ title: "Client deleted" });
-                        } else {
-                          // Check if it failed because of linked documents
-                          try {
-                            const res = await fetch(`/api/clients/${c.id}`);
-                            if (res.status === 409) {
-                              const data = await res.json();
-                              toast({
-                                title: "Cannot delete client",
-                                description: `${c.name} has ${data.docCount} linked document(s). Delete those first or use "force delete".`,
-                                variant: "destructive",
-                              });
-                              // Ask if they want to force delete
-                              if (confirm(`Force delete ${c.name} and ALL ${data.docCount} linked documents?`)) {
-                                const forceRes = await fetch(`/api/clients/${c.id}?force=true`, { method: "DELETE" });
-                                if (forceRes.ok) {
-                                  toast({ title: "Client and all linked documents deleted" });
-                                  // Remove from local state
-                                  useStore.setState((s) => ({
-                                    clients: s.clients.filter((cl) => cl.id !== c.id),
-                                    documents: s.documents.filter((d) => d.clientId !== c.id),
-                                  }));
-                                } else {
-                                  toast({ title: "Force delete failed", variant: "destructive" });
-                                }
-                              }
-                            } else {
-                              toast({ title: "Could not delete client", variant: "destructive" });
-                            }
-                          } catch {
-                            toast({ title: "Could not delete client", variant: "destructive" });
-                          }
-                        }
-                      }}
+                      onClick={() => setPendingDelete(c)}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
@@ -383,6 +390,32 @@ export function ClientsPanel({ onViewDocs }: Props) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete client confirmation */}
+      <ConfirmDialog
+        open={!!pendingDelete}
+        onOpenChange={(o) => { if (!o) setPendingDelete(null); }}
+        title={`Delete ${pendingDelete?.name ?? ""}?`}
+        description="The client is removed from your list. Their documents are kept."
+        confirmLabel="Delete"
+        destructive
+        onConfirm={() => {
+          const c = pendingDelete;
+          setPendingDelete(null);
+          if (c) doDeleteClient(c);
+        }}
+      />
+
+      {/* Force-delete confirmation, offered when the client has linked documents */}
+      <ConfirmDialog
+        open={!!pendingForce}
+        onOpenChange={(o) => { if (!o) setPendingForce(null); }}
+        title={`Force delete ${pendingForce?.name ?? ""}?`}
+        description={`This permanently deletes the client and ALL ${pendingForce?.docCount ?? 0} linked document(s). This can't be undone.`}
+        confirmLabel="Force delete"
+        destructive
+        onConfirm={doForceDelete}
+      />
     </div>
   );
 }

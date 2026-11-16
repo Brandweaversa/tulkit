@@ -33,6 +33,7 @@ import {
 } from "@/lib/format";
 import { InvoicePreview } from "./invoice-preview";
 import { ShareDialog } from "./share-dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { downloadInvoicePdf } from "@/lib/pdf";
 import { can } from "@/lib/features";
 import type { DocumentStatus, InvoiceDocument } from "@/lib/types";
@@ -62,6 +63,8 @@ export function DocumentEditor({ docId, onBack }: Props) {
   const [shareMode, setShareMode] = useState<"share" | "reminder">("share");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [convertOpen, setConvertOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   // Documents store a snapshot of the client's details at creation time.
   // Keep that snapshot in step with the live client record while editing:
@@ -165,9 +168,10 @@ export function DocumentEditor({ docId, onBack }: Props) {
       });
       return;
     }
-    if (!confirm("Convert this quote into an invoice? The quote will be marked as converted.")) {
-      return;
-    }
+    setConvertOpen(true);
+  }
+
+  async function doConvert() {
     const newInvoice = await convertQuoteToInvoice(doc!.id);
     if (newInvoice) {
       toast({
@@ -177,6 +181,16 @@ export function DocumentEditor({ docId, onBack }: Props) {
       onBack();
     } else {
       toast({ title: "Conversion failed", variant: "destructive" });
+    }
+  }
+
+  async function doDeleteDoc() {
+    const success = await deleteDoc(doc!.id);
+    if (success) {
+      toast({ title: "Document deleted" });
+      onBack();
+    } else {
+      toast({ title: "Could not delete document", description: "Please try again.", variant: "destructive" });
     }
   }
 
@@ -284,22 +298,33 @@ export function DocumentEditor({ docId, onBack }: Props) {
           <Button
             variant="ghost"
             className="text-destructive"
-            onClick={async () => {
-              if (confirm(`Delete ${doc.number}?`)) {
-                const success = await deleteDoc(doc.id);
-                if (success) {
-                  toast({ title: "Document deleted" });
-                  onBack();
-                } else {
-                  toast({ title: "Could not delete document", description: "Please try again.", variant: "destructive" });
-                }
-              }
-            }}
+            onClick={() => setDeleteOpen(true)}
           >
             <Trash2 className="h-4 w-4" />
           </Button>
         </div>
       </div>
+
+      {/* Quote-to-invoice conversion confirmation */}
+      <ConfirmDialog
+        open={convertOpen}
+        onOpenChange={setConvertOpen}
+        title="Convert quote into invoice?"
+        description="The quote will be marked as converted and a new invoice created from it."
+        confirmLabel="Convert"
+        onConfirm={doConvert}
+      />
+
+      {/* Document deletion confirmation */}
+      <ConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title={`Delete ${doc.number}?`}
+        description="The document is removed from your list. This can't be undone."
+        confirmLabel="Delete"
+        destructive
+        onConfirm={doDeleteDoc}
+      />
 
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Left: form */}

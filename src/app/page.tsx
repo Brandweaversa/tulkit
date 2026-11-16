@@ -21,6 +21,7 @@ import { AdminDashboard } from "@/components/admin-dashboard";
 import { SubscriptionBanner } from "@/components/subscription-banner";
 import { AuthForm } from "@/components/auth/auth-form";
 import { PrivacyNoticeDialog } from "@/components/privacy-notice-dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { AdminNotifications } from "@/components/admin-notifications";
 import {
   Dialog,
@@ -39,6 +40,7 @@ export default function Home() {
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [clientFilter, setClientFilter] = useState<string | null>(null);
   const [privacyNoticeOpen, setPrivacyNoticeOpen] = useState(false);
+  const [signOutOpen, setSignOutOpen] = useState(false);
 
   const authUser = useStore((s) => s.authUser);
   const authLoading = useStore((s) => s.authLoading);
@@ -189,12 +191,7 @@ export default function Home() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => {
-                    if (confirm("Sign out of Tulkit?")) {
-                      signOut();
-                      toast({ title: "Signed out" });
-                    }
-                  }}
+                  onClick={() => setSignOutOpen(true)}
                   title="Sign out"
                 >
                   <LogOut className="h-4 w-4" />
@@ -281,6 +278,19 @@ export default function Home() {
         onAcknowledge={() => {
           localStorage.setItem("tulkit-privacy-notice-v1", new Date().toISOString());
           setPrivacyNoticeOpen(false);
+        }}
+      />
+
+      {/* Sign-out confirmation */}
+      <ConfirmDialog
+        open={signOutOpen}
+        onOpenChange={setSignOutOpen}
+        title="Sign out of Tulkit?"
+        description="You can sign back in any time."
+        confirmLabel="Sign out"
+        onConfirm={() => {
+          signOut();
+          toast({ title: "Signed out" });
         }}
       />
 
