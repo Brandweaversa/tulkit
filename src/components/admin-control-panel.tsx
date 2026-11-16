@@ -54,7 +54,7 @@ const GROUPS: SwitchGroup[] = [
       },
       {
         key: "poweredByVisible",
-        label: "Powered by Brandweaver",
+        label: "Powered by Tulkit",
         description:
           "The branding line at the bottom of the login screen and the app footer.",
       },
