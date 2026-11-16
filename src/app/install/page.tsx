@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { createClient } from "@/lib/supabase/client";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -27,6 +28,7 @@ export default function InstallHelpPage() {
   const [manifestState, setManifestState] = useState("checking…");
   const [online, setOnline] = useState(true);
   const [standalone, setStandalone] = useState(false);
+  const [signedIn, setSignedIn] = useState(false);
 
   const checkSw = useCallback(async () => {
     if (!("serviceWorker" in navigator)) {
@@ -65,6 +67,26 @@ export default function InstallHelpPage() {
     };
   }, [checkSw]);
 
+  // Signed-in visitors usually landed here by accident (e.g. after
+  // diagnosing an install problem). Offer a way back to the app that also
+  // replaces this page's history entry — otherwise /install lingers one
+  // step behind the dashboard and browser/system Back lands on it.
+  // `pageshow` re-checks after back/forward-cache restores, which skip
+  // effects entirely.
+  useEffect(() => {
+    const check = () =>
+      createClient()
+        .auth.getUser()
+        .then(({ data }) => setSignedIn(!!data.user))
+        .catch(() => setSignedIn(false));
+    check();
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) check();
+    };
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
+  }, []);
+
   const registerNow = async () => {
     try {
       await navigator.serviceWorker.register("/sw.js");
@@ -101,6 +123,25 @@ export default function InstallHelpPage() {
           install option appears.
         </p>
       </div>
+
+      {signedIn && (
+        <div className="flex items-center justify-between gap-3 rounded-xl border bg-muted/40 p-4">
+          <div className="min-w-0">
+            <p className="text-sm font-medium">You&apos;re signed in</p>
+            <p className="text-xs text-muted-foreground">
+              Continue to your dashboard — this page is removed from your
+              back history.
+            </p>
+          </div>
+          <Button
+            size="sm"
+            onClick={() => window.location.replace("/")}
+            className="shrink-0"
+          >
+            Open Tulkit
+          </Button>
+        </div>
+      )}
 
       <ul className="space-y-2 rounded-xl border p-4 text-sm">
         <li className="flex justify-between gap-3">
