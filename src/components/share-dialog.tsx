@@ -303,6 +303,21 @@ export function ShareDialog({
       const text = activeMode === "reminder" ? editedReminder : editedMessage;
       const title =
         activeMode === "reminder" ? editedReminderSubject : editedSubject;
+      // The share sheet can't carry a recipient, so put the client's email
+      // on the clipboard — paste it into the To field after picking the
+      // mail app.
+      const recipient = ctx.doc.clientSnapshot.email;
+      if (recipient) {
+        try {
+          await navigator.clipboard.writeText(recipient);
+          toast({
+            title: "Client email copied",
+            description: "Paste it in the To field after picking your mail app.",
+          });
+        } catch {
+          // Clipboard unavailable — the email is still visible in the tab.
+        }
+      }
       await shareSheetWithPdf(title, text);
       return;
     }
@@ -578,8 +593,9 @@ export function ShareDialog({
                 </Button>
                 <p className="text-xs text-muted-foreground">
                   The share sheet opens with the PDF attached and your message
-                  included — pick your mail app and the compose window fills
-                  in. &ldquo;Text only&rdquo; opens{" "}
+                  included — pick your mail app, paste the client&apos;s email
+                  (copied for you) into <strong>To</strong>, and the compose
+                  window fills in. &ldquo;Text only&rdquo; opens{" "}
                   {editedEmail || "the client"}&apos;s address with subject and
                   body pre-filled instead, but then you attach the PDF by hand.
                 </p>
