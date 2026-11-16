@@ -160,3 +160,21 @@ model AdminAuditLog {
   @@index([createdAt])
   @@map("admin_audit_log")
 }
+
+// Global platform switches controlled by the admin control panel.
+// Singleton row (id "app") — created on first read. Read failures fall back
+// to all-on defaults (see src/lib/app-settings.ts) so the app never bricks.
+model AppSettings {
+  id                   String   @id @default("app")
+  signupOpen           Boolean  @default(true)
+  googleSigninEnabled  Boolean  @default(true)
+  privacyNoticeEnabled Boolean  @default(true)
+  installBannerEnabled Boolean  @default(true)
+  poweredByVisible     Boolean  @default(true)
+  whatsappShareEnabled Boolean  @default(true)
+  emailShareEnabled    Boolean  @default(true)
+  pdfDownloadEnabled   Boolean  @default(true)
+  updatedAt            DateTime @updatedAt
+
+  @@map("app_settings")
+}

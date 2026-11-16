@@ -1,6 +1,10 @@
 import { db } from "@/lib/db";
 
-export type AdminAction = "activate_subscription" | "revoke_subscription" | "delete_user";
+export type AdminAction =
+  | "activate_subscription"
+  | "revoke_subscription"
+  | "delete_user"
+  | "update_settings";
 
 // Fire-and-forget audit logging for platform-admin actions.
 // Logging failures are reported to the server console but never block

@@ -42,6 +42,7 @@ export function AuthForm() {
   const authLoading = useStore((s) => s.authLoading);
   const justSignedUp = useStore((s) => s.justSignedUp);
   const requestPasswordReset = useStore((s) => s.requestPasswordReset);
+  const appSettings = useStore((s) => s.appSettings);
 
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
@@ -250,6 +251,7 @@ export function AuthForm() {
             </CardContent>
           </Card>
 
+          {appSettings.poweredByVisible && (
           <div className="text-center text-xs text-neutral-500 mt-6">
             Powered by{" "}
             <a
@@ -261,6 +263,7 @@ export function AuthForm() {
               Brandweaver
             </a>
           </div>
+          )}
         </div>
       </div>
     );
@@ -306,7 +309,34 @@ export function AuthForm() {
             </CardDescription>
           </CardHeader>
 
-          <CardContent>
+            <CardContent>
+            {mode === "signup" && !appSettings.signupOpen ? (
+              <div className="space-y-4">
+                <div
+                  role="alert"
+                  className="rounded-md bg-amber-50 border border-amber-200 p-3 text-sm text-amber-900 flex gap-2 items-start"
+                >
+                  <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                  <span>
+                    Registration is currently closed. If you need an account,
+                    please contact us.
+                  </span>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => {
+                    setMode("signin");
+                    setErrors({});
+                    setSubmitError(null);
+                  }}
+                >
+                  Back to sign in
+                </Button>
+              </div>
+            ) : (
+              <>
             <form onSubmit={handleSubmit} className="space-y-4" noValidate>
               {submitError && (
                 <div
@@ -438,7 +468,7 @@ export function AuthForm() {
               </Button>
             </form>
 
-            {mode !== "forgot" && (
+            {mode !== "forgot" && appSettings.googleSigninEnabled && (
               <>
                 <div className="my-5 flex items-center gap-3">
                   <div className="h-px flex-1 bg-border" />
@@ -478,9 +508,12 @@ export function AuthForm() {
                 </Button>
               </>
             )}
+              </>
+            )}
 
             <div className="mt-4 text-center text-sm">
               {mode === "signin" ? (
+                appSettings.signupOpen ? (
                 <>
                   Don&apos;t have an account?{" "}
                   <button
@@ -495,6 +528,7 @@ export function AuthForm() {
                     Sign up
                   </button>
                 </>
+                ) : null
               ) : (
                 <>
                   {mode === "forgot" ? "Remembered it?" : "Already have an account?"}{" "}
@@ -515,6 +549,7 @@ export function AuthForm() {
           </CardContent>
         </Card>
 
+        {appSettings.poweredByVisible && (
         <div className="text-center text-xs text-neutral-500">
           Powered by{" "}
           <a
@@ -526,6 +561,7 @@ export function AuthForm() {
             Brandweaver
           </a>
         </div>
+        )}
       </div>
     </div>
   );

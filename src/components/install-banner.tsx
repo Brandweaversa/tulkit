@@ -27,8 +27,17 @@ const DISMISS_KEY = "tulkit-install-banner-dismissed";
 export function InstallBanner() {
   const [promptEvent, setPromptEvent] = useState<BeforeInstallPromptEvent | null>(null);
   const [dismissed, setDismissed] = useState(true); // hidden until effects confirm
+  // Admin control-panel switch (fails open on fetch errors).
+  const [allowed, setAllowed] = useState(true);
 
   useEffect(() => {
+    fetch("/api/public/settings")
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(String(res.status)))))
+      .then((data) => {
+        if (data?.settings?.installBannerEnabled === false) setAllowed(false);
+      })
+      .catch(() => {});
+
     if (window.matchMedia("(display-mode: standalone)").matches) return;
     if (window.localStorage.getItem(DISMISS_KEY)) return;
     setDismissed(false);
@@ -83,7 +92,7 @@ export function InstallBanner() {
     setDismissed(true);
   };
 
-  if (!promptEvent || dismissed) return null;
+  if (!allowed || !promptEvent || dismissed) return null;
 
   return (
     <div className="fixed inset-x-4 bottom-16 z-50 flex items-center gap-3 rounded-xl border bg-card p-3 shadow-lg sm:bottom-4 sm:left-auto sm:right-4 sm:max-w-sm">

@@ -48,6 +48,7 @@ export function DocumentEditor({ docId, onBack }: Props) {
   const business = useStore((s) => s.business);
   const clients = useStore((s) => s.clients);
   const authUser = useStore((s) => s.authUser);
+  const appSettings = useStore((s) => s.appSettings);
   const doc = useStore((s) => s.documents.find((d) => d.id === docId));
   const updateDoc = useStore((s) => s.updateDocument);
   const saveDoc = useStore((s) => s.saveDocument);
@@ -111,9 +112,11 @@ export function DocumentEditor({ docId, onBack }: Props) {
         allocatedFeatures: authUser.allocatedFeatures,
       }
     : null;
-  const canShareWhatsApp = can(userCtx, "whatsapp_share");
-  const canShareEmail = can(userCtx, "email_share");
-  const canDownloadPdf = can(userCtx, "pdf_download");
+  // Global master switches (admin control panel) multiply with the
+  // per-user allocation — a feature needs both to show.
+  const canShareWhatsApp = can(userCtx, "whatsapp_share") && appSettings.whatsappShareEnabled;
+  const canShareEmail = can(userCtx, "email_share") && appSettings.emailShareEnabled;
+  const canDownloadPdf = can(userCtx, "pdf_download") && appSettings.pdfDownloadEnabled;
   const canConvert = can(userCtx, "convert_quote_to_invoice");
   // Reminders are for invoices that are actually out the door.
   const canRemind =

@@ -129,3 +129,28 @@ export interface AuthUser {
   trialExpiresAt?: string;
   allocatedFeatures: FeatureKey[];
 }
+
+// Global platform switches (admin control panel → AppSettings singleton).
+// Client-safe shape shared by the store, admin panel and public settings API.
+export interface AppSettingsState {
+  signupOpen: boolean;
+  googleSigninEnabled: boolean;
+  privacyNoticeEnabled: boolean;
+  installBannerEnabled: boolean;
+  poweredByVisible: boolean;
+  whatsappShareEnabled: boolean;
+  emailShareEnabled: boolean;
+  pdfDownloadEnabled: boolean;
+}
+
+// Everything on by default — a failed settings fetch never breaks the app.
+export const DEFAULT_APP_SETTINGS: AppSettingsState = {
+  signupOpen: true,
+  googleSigninEnabled: true,
+  privacyNoticeEnabled: true,
+  installBannerEnabled: true,
+  poweredByVisible: true,
+  whatsappShareEnabled: true,
+  emailShareEnabled: true,
+  pdfDownloadEnabled: true,
+};

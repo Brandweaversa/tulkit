@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
+import { getAppSettings } from "@/lib/app-settings";
 import { FEATURE_KEYS } from "@/lib/types";
 
 export async function POST(request: Request) {
@@ -9,6 +10,15 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: "Email and password are required" },
       { status: 400 },
+    );
+  }
+
+  // Admin control-panel switch: reject new registrations when closed.
+  const settings = await getAppSettings();
+  if (!settings.signupOpen) {
+    return NextResponse.json(
+      { error: "Registration is currently closed" },
+      { status: 403 },
     );
   }
 

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { AdminControlPanel } from "@/components/admin-control-panel";
 import {
   Dialog,
   DialogContent,
@@ -251,6 +252,9 @@ export function AdminDashboard() {
           Manage users, activate subscriptions, and track revenue.
         </p>
       </div>
+
+      {/* Control panel — global on/off switches */}
+      <AdminControlPanel />
 
       {/* Stats */}
       {stats && (
@@ -864,6 +868,10 @@ function AuditActionBadge({ action }: { action: string }) {
       label: "Deleted",
       className: "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300",
     },
+    update_settings: {
+      label: "Settings",
+      className: "bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300",
+    },
   };
   const m = meta[action] ?? { label: action, className: "" };
   return (
@@ -893,6 +901,18 @@ function describeAuditDetails(e: AuditEntry): string {
     if (typeof d.documents === "number") parts.push(`${d.documents} documents`);
     if (d.authDeleted === false) parts.push("auth account not removed");
     return parts.join(" · ");
+  }
+  if (e.action === "update_settings") {
+    const changes = d.changes as
+      | Record<string, { from: boolean; to: boolean }>
+      | undefined;
+    if (!changes) return "";
+    return Object.keys(changes)
+      .map(
+        (key) =>
+          `${key}: ${changes[key].from ? "on" : "off"} → ${changes[key].to ? "on" : "off"}`,
+      )
+      .join(", ");
   }
   return "";
 }

@@ -9,7 +9,9 @@ import type {
   DocumentType,
   DocumentStatus,
   FeatureKey,
+  AppSettingsState,
 } from "./types";
+import { DEFAULT_APP_SETTINGS } from "./types";
 import { DEFAULT_BUSINESS, symbolForCurrency } from "./format";
 import { toast } from "@/hooks/use-toast";
 
@@ -56,6 +58,10 @@ interface StoreState {
 
   // Data actions
   loadFromServer: () => Promise<void>;
+
+  // Global switches (admin control panel; read by login screen + UI gating)
+  appSettings: AppSettingsState;
+  fetchAppSettings: () => Promise<void>;
 
   // Business
   updateBusiness: (patch: Partial<BusinessProfile>) => void;
@@ -106,6 +112,19 @@ export const useStore = create<StoreState>((set, get) => ({
   clients: [],
   documents: [],
   dataLoading: false,
+
+  appSettings: { ...DEFAULT_APP_SETTINGS },
+
+  fetchAppSettings: async () => {
+    try {
+      const data = await apiFetch("/api/public/settings");
+      if (data?.settings) {
+        set({ appSettings: { ...DEFAULT_APP_SETTINGS, ...data.settings } });
+      }
+    } catch {
+      // Keep the all-on defaults — a failed fetch never breaks the app.
+    }
+  },
 
   fetchAuthUser: async () => {
     set({ authLoading: true, authError: null });

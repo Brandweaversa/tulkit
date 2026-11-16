@@ -45,13 +45,16 @@ export default function Home() {
   const authUser = useStore((s) => s.authUser);
   const authLoading = useStore((s) => s.authLoading);
   const fetchAuthUser = useStore((s) => s.fetchAuthUser);
+  const appSettings = useStore((s) => s.appSettings);
+  const fetchAppSettings = useStore((s) => s.fetchAppSettings);
   const loadFromServer = useStore((s) => s.loadFromServer);
   const signOut = useStore((s) => s.signOut);
   const createDocument = useStore((s) => s.createDocument);
 
   useEffect(() => {
     fetchAuthUser();
-  }, [fetchAuthUser]);
+    fetchAppSettings();
+  }, [fetchAuthUser, fetchAppSettings]);
 
   useEffect(() => {
     if (authUser) {
@@ -60,15 +63,17 @@ export default function Home() {
   }, [authUser, loadFromServer]);
 
   // Show the privacy notice once per browser, right after sign-in
+  // (skipped entirely when the admin turned it off in the control panel)
   useEffect(() => {
     if (!authUser) return;
+    if (!appSettings.privacyNoticeEnabled) return;
     const t = setTimeout(() => {
       if (!localStorage.getItem("tulkit-privacy-notice-v1")) {
         setPrivacyNoticeOpen(true);
       }
     }, 0);
     return () => clearTimeout(t);
-  }, [authUser]);
+  }, [authUser, appSettings.privacyNoticeEnabled]);
 
   function handleNewDoc(type: "invoice" | "quote") {
     createDocument(type).then((doc) => {
@@ -258,6 +263,7 @@ export default function Home() {
               Privacy Policy
             </Link>
           </nav>
+          {appSettings.poweredByVisible && (
           <div className="text-[11px] text-muted-foreground/80">
             Tulkit is a product of BrandweaverSA (Pty) Ltd. Powered by{" "}
             <a
@@ -269,6 +275,7 @@ export default function Home() {
               Brandweaver
             </a>
           </div>
+          )}
         </div>
       </footer>
 
