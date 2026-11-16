@@ -284,7 +284,7 @@ export function AuthForm() {
           <img
             src="/tulkit-design.png"
             alt="Tulkit"
-            className="w-full max-w-sm h-auto"
+            className="w-full max-w-sx h-auto"
             onError={(e) => {
               e.currentTarget.style.display = "none";
             }}
