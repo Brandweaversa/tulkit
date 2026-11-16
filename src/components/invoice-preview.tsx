@@ -15,11 +15,11 @@ export function InvoicePreview({ business, doc }: Props) {
   const client = doc.clientSnapshot;
 
   return (
-    <div className="bg-white text-neutral-900 shadow-sm border rounded-lg overflow-hidden relative">
+    <div className="bg-white text-neutral-900 shadow-sm border rounded-lg overflow-hidden relative flex flex-col aspect-[210/297]">
       {/* accent top band */}
       <div className="h-1.5" style={{ backgroundColor: accent }} />
 
-      <div className="p-6 sm:p-8 space-y-6">
+      <div className="p-6 sm:p-8 flex flex-col gap-6 flex-1">
         {/* Header band 1 — logo (left) + document meta (right), mirrors the PDF header */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           {/* Left: logo */}
@@ -247,25 +247,31 @@ export function InvoicePreview({ business, doc }: Props) {
           </div>
         )}
 
-        {doc.paymentTerms && (
-          <div className="text-xs">
-            <div className="font-semibold text-neutral-500 uppercase tracking-wider text-[10px]">
-              Terms
-            </div>
-            <div className="mt-1 text-neutral-700 break-words whitespace-pre-wrap">
-              {doc.paymentTerms}
-            </div>
-          </div>
-        )}
+        {/* Terms + notes — pinned to the bottom of the page, just above the
+            footer strip, in fine print. Mirrors the PDF layout. */}
+        {(doc.paymentTerms || doc.notes) && (
+          <div className="mt-auto space-y-3">
+            {doc.paymentTerms && (
+              <div className="text-[11px] leading-snug">
+                <div className="font-semibold text-neutral-500 uppercase tracking-wider text-[9px]">
+                  Terms
+                </div>
+                <div className="mt-1 text-neutral-700 break-words whitespace-pre-wrap">
+                  {doc.paymentTerms}
+                </div>
+              </div>
+            )}
 
-        {doc.notes && (
-          <div className="text-xs">
-            <div className="font-semibold text-neutral-500 uppercase tracking-wider text-[10px]">
-              Notes
-            </div>
-            <div className="mt-1 text-neutral-700 break-words whitespace-pre-wrap">
-              {doc.notes}
-            </div>
+            {doc.notes && (
+              <div className="text-[11px] leading-snug">
+                <div className="font-semibold text-neutral-500 uppercase tracking-wider text-[9px]">
+                  Notes
+                </div>
+                <div className="mt-1 text-neutral-700 break-words whitespace-pre-wrap">
+                  {doc.notes}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

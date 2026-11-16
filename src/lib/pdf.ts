@@ -482,30 +482,72 @@ export function generateInvoicePdf({ business, doc, user, tulkitIconDataUrl }: P
     afterTableY += 8;
   }
 
-  // ----- Payment terms + notes -----
-  if (doc.paymentTerms) {
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(9);
-    pdf.setTextColor(120, 120, 120);
-    pdf.text("TERMS", margin, afterTableY);
-    afterTableY += 12;
-    pdf.setFont("helvetica", "normal");
-    pdf.setTextColor(60, 60, 60);
-    const wrapped = pdf.splitTextToSize(doc.paymentTerms, pageW - margin * 2);
-    pdf.text(wrapped, margin, afterTableY);
-    afterTableY += wrapped.length * 12 + 8;
-  }
+  // ----- Payment terms + notes — pinned to the bottom of the page, just
+  // above the footer strip. Fine-print sizing: clearly smaller than the body
+  // text but still readable on screen and paper. -----
+  const footerDividerY = pageH - 44;
+  const bottomLimit = footerDividerY - 8; // breathing room above the divider
+  const bottomBlocks = [
+    ...(doc.paymentTerms ? [{ label: "TERMS", text: doc.paymentTerms }] : []),
+    ...(doc.notes ? [{ label: "NOTES", text: doc.notes }] : []),
+  ];
 
-  if (doc.notes) {
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(9);
-    pdf.setTextColor(120, 120, 120);
-    pdf.text("NOTES", margin, afterTableY);
-    afterTableY += 12;
+  if (bottomBlocks.length > 0) {
+    const LABEL_SIZE = 7;
+    const BODY_SIZE = 8;
+    const BODY_LEADING = 10.5;
+    const LABEL_LEADING = 9;
+    const BLOCK_GAP = 7;
+
+    // Measure wrapped lines with the final body font so the block is
+    // bottom-anchored precisely: startY + totalH lands on bottomLimit.
     pdf.setFont("helvetica", "normal");
-    pdf.setTextColor(60, 60, 60);
-    const wrappedNotes = pdf.splitTextToSize(doc.notes, pageW - margin * 2);
-    pdf.text(wrappedNotes, margin, afterTableY);
+    pdf.setFontSize(BODY_SIZE);
+    const blocks = bottomBlocks.map((b) => ({
+      label: b.label,
+      lines: pdf.splitTextToSize(b.text, pageW - margin * 2) as string[],
+    }));
+
+    const blockH = (n: number) => LABEL_LEADING + n * BODY_LEADING;
+    let totalH =
+      blocks.reduce((sum, b) => sum + blockH(b.lines.length), 0) +
+      BLOCK_GAP * (blocks.length - 1);
+
+    // The block grows upward from the footer. If a very long note would ever
+    // reach the totals or banking block, trim the last block's lines with an
+    // ellipsis so the two can never collide.
+    const minY = afterTableY + 20;
+    let startY = bottomLimit - totalH;
+    if (startY < minY) {
+      const last = blocks[blocks.length - 1];
+      const removable = Math.min(
+        last.lines.length - 1,
+        Math.ceil((minY - startY) / BODY_LEADING),
+      );
+      if (removable > 0) {
+        last.lines = [
+          ...last.lines.slice(0, last.lines.length - removable),
+          "…",
+        ];
+        totalH -= removable * BODY_LEADING;
+        startY = bottomLimit - totalH;
+      }
+      if (startY < minY) startY = minY;
+    }
+
+    let y = startY;
+    for (const b of blocks) {
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(LABEL_SIZE);
+      pdf.setTextColor(120, 120, 120);
+      pdf.text(b.label, margin, y);
+      y += LABEL_LEADING;
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(BODY_SIZE);
+      pdf.setTextColor(60, 60, 60);
+      pdf.text(b.lines, margin, y);
+      y += b.lines.length * BODY_LEADING + BLOCK_GAP;
+    }
   }
 
   // ----- Footer -----
