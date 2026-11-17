@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AdminControlPanel } from "@/components/admin-control-panel";
+import { AdminPlatformSettings } from "@/components/admin-platform-settings";
 import {
   Dialog,
   DialogContent,
@@ -36,6 +37,7 @@ import { toast } from "@/hooks/use-toast";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FEATURE_KEYS, FEATURE_LABELS, FREE_TIER_LIMITS } from "@/lib/types";
 import type { FeatureKey } from "@/lib/types";
+import { useStore } from "@/lib/store";
 
 interface AdminUser {
   id: string;
@@ -129,6 +131,12 @@ export function AdminDashboard() {
   const [detailUserId, setDetailUserId] = useState<string | null>(null);
   const [revokeUserId, setRevokeUserId] = useState<string | null>(null);
   const [pendingDeleteUser, setPendingDeleteUser] = useState<{ id: string; email: string; impact: string } | null>(null);
+  const appSettings = useStore((s) => s.appSettings);
+  const fetchAppSettings = useStore((s) => s.fetchAppSettings);
+
+  useEffect(() => {
+    fetchAppSettings();
+  }, [fetchAppSettings]);
 
   async function loadData() {
     try {
@@ -253,6 +261,9 @@ export function AdminDashboard() {
         </p>
       </div>
 
+      {/* Platform settings — pricing, payment methods, OTT + SMS credentials */}
+      <AdminPlatformSettings />
+
       {/* Control panel — global on/off switches */}
       <AdminControlPanel />
 
@@ -266,7 +277,7 @@ export function AdminDashboard() {
             icon={<TrendingUp className="h-4 w-4" />}
             label="Est. monthly revenue"
             value={`R${stats.estimatedMonthlyRevenue}`}
-            sub={`R99 × ${stats.activeSubscriptions} active`}
+            sub={`R${appSettings.proPriceAmount} × ${stats.activeSubscriptions} active`}
             tone="emerald"
           />
         </div>
@@ -562,6 +573,7 @@ function SubscribeDialog({
   const [selectedFeatures, setSelectedFeatures] = useState<FeatureKey[]>(
     user.allocatedFeatures.length > 0 ? user.allocatedFeatures : [...FEATURE_KEYS],
   );
+  const appSettings = useStore((s) => s.appSettings);
 
   function toggleFeature(f: FeatureKey) {
     setSelectedFeatures((prev) =>
@@ -589,7 +601,10 @@ function SubscribeDialog({
               value={days}
               onChange={(e) => setDays(Number(e.target.value) || 30)}
             />
-            <p className="text-xs text-muted-foreground">Default: 30 days. R99 recommended.</p>
+            <p className="text-xs text-muted-foreground">
+              Default: {appSettings.proDays} days (matches your pricing card). For cash payers
+              from outside South Africa, activate manually here after receiving payment.
+            </p>
           </div>
 
           <div className="space-y-2">

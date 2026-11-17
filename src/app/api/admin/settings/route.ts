@@ -35,8 +35,12 @@ export async function PUT(request: Request) {
 
   const changes: Record<string, { from: boolean; to: boolean }> = {};
   for (const key of Object.keys(previous) as (keyof typeof previous)[]) {
-    if (previous[key] !== settings[key]) {
-      changes[key] = { from: previous[key], to: settings[key] };
+    const from = previous[key];
+    const to = settings[key];
+    // Only the boolean switches are editable via this route — the pricing
+    // numbers ride along read-only and change via platform settings.
+    if (typeof from === "boolean" && typeof to === "boolean" && from !== to) {
+      changes[key] = { from, to };
     }
   }
 

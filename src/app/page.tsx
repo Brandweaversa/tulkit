@@ -9,7 +9,6 @@ import {
   Settings,
   LogOut,
   Loader2,
-  Crown,
   Shield,
 } from "lucide-react";
 import { useStore, apiFetch } from "@/lib/store";
@@ -19,18 +18,12 @@ import { ClientsPanel } from "@/components/clients-panel";
 import { BusinessSettings } from "@/components/business-settings";
 import { AdminDashboard } from "@/components/admin-dashboard";
 import { SubscriptionBanner } from "@/components/subscription-banner";
+import { SubscribeDialog } from "@/components/subscribe-dialog";
 import { AuthForm } from "@/components/auth/auth-form";
 import { PhoneVerifyGate } from "@/components/phone-verify-gate";
 import { PrivacyNoticeDialog } from "@/components/privacy-notice-dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { AdminNotifications } from "@/components/admin-notifications";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
 
 type View = "dashboard" | "clients" | "settings" | "admin";
@@ -338,54 +331,15 @@ export default function Home() {
         }}
       />
 
-      {/* Upgrade dialog */}
-      <Dialog open={upgradeOpen} onOpenChange={setUpgradeOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Crown className="h-5 w-5 text-amber-500" /> Upgrade to Pro
-            </DialogTitle>
-            <DialogDescription>
-              Unlock all features for 30 days. No accumulation — pay once, use for 30 days.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div className="rounded-md bg-muted/50 p-4 space-y-2">
-              <div className="font-semibold">Pro — R99 / 30 days</div>
-              <ul className="text-sm space-y-1 text-muted-foreground">
-                <li>✅ Unlimited documents</li>
-                <li>✅ Unlimited clients</li>
-                <li>✅ PDF download</li>
-                <li>✅ WhatsApp & Email sharing</li>
-                <li>✅ Custom logo & branding</li>
-                <li>✅ Banking details on invoices</li>
-                <li>✅ Convert quotes to invoices</li>
-              </ul>
-            </div>
-            <div className="rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 p-3 text-sm">
-              <div className="font-semibold text-amber-800 dark:text-amber-200">
-                Pay with cash
-              </div>
-              <div className="text-amber-700 dark:text-amber-300 text-xs mt-1">
-                Contact us to pay R99 cash. After payment, we&apos;ll activate your 30-day Pro access manually.
-              </div>
-            </div>
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setUpgradeOpen(false)}>
-              Maybe later
-            </Button>
-            <Button
-              className="bg-[#0E7C9C] hover:bg-[#0A6582] text-white"
-              onClick={() => {
-                window.open("https://wa.me/27738239666?text=Hi%20I%20want%20to%20upgrade%20to%20Tulkit%20Pro", "_blank");
-              }}
-            >
-              Contact us to pay
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Subscribe / upgrade dialog — OTT voucher + cash fallback */}
+      <SubscribeDialog
+        open={upgradeOpen}
+        onOpenChange={setUpgradeOpen}
+        onGoToSettings={() => {
+          setUpgradeOpen(false);
+          setView("settings");
+        }}
+      />
     </div>
   );
 }

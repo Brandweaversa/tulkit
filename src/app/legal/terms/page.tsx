@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { getPlatformSettings } from "@/lib/platform-settings";
 
 export const metadata: Metadata = {
   title: "Terms & Conditions — Tulkit",
@@ -7,7 +8,15 @@ export const metadata: Metadata = {
     "Terms and Conditions for Tulkit, a product of BrandweaverSA (Pty) Ltd.",
 };
 
-const sections: { title: string; paragraphs: string[] }[] = [
+// Rendered per request so the pricing paragraphs always reflect the amount
+// set on the admin pricing card (falls back to the default on DB trouble).
+export const dynamic = "force-dynamic";
+
+function buildSections(
+  amount: number,
+  days: number,
+): { title: string; paragraphs: string[] }[] {
+  return [
   {
     title: "1. About these terms",
     paragraphs: [
@@ -29,8 +38,8 @@ const sections: { title: string; paragraphs: string[] }[] = [
     paragraphs: [
       "The Service offers a free tier with limited functionality (for example, a maximum number of documents and clients) and a paid plan (\"Pro\") that unlocks additional features.",
       "New accounts may receive a free trial period (currently 30 days). After the trial ends, accounts revert to the free tier unless a Pro subscription is activated.",
-      "Pro access is offered at R99 per 30-day period unless otherwise agreed in writing. Payment is made by arrangement with us (for example, via the contact options shown in the app). Access is activated manually by us after payment is confirmed.",
-      "Subscriptions do not auto-renew and are not cumulative: each activation grants 30 days of access from the date of activation. We may change pricing before a new activation; existing active periods are not affected.",
+      `Pro access is offered at R${amount} per ${days}-day period unless otherwise agreed in writing. Payment is made by redeeming an OTT voucher in the app, or by arrangement with us (for example, via the contact options shown in the app).`,
+      `Subscriptions do not auto-renew and are not cumulative: each activation grants ${days} days of access from the date of activation. We may change pricing before a new activation; existing active periods are not affected.`,
     ],
   },
   {
@@ -84,9 +93,15 @@ const sections: { title: string; paragraphs: string[] }[] = [
       "Questions about these Terms can be sent to us using the contact options shown in the app or through our website at brandweaver.co.za.",
     ],
   },
-];
+  ];
+}
 
-export default function TermsPage() {
+export default async function TermsPage() {
+  const platform = await getPlatformSettings();
+  const sections = buildSections(
+    platform.subscriptionAmount,
+    platform.subscriptionDays,
+  );
   return (
     <div className="min-h-screen bg-muted/20">
       <main className="max-w-3xl mx-auto px-4 py-10">

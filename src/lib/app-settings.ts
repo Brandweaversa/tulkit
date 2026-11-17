@@ -1,11 +1,21 @@
 import { db } from "@/lib/db";
 import { DEFAULT_APP_SETTINGS, type AppSettingsState } from "./types";
+import { getPlatformSettings } from "./platform-settings";
 
 const SETTINGS_ID = "app";
 
 // Singleton settings row: reading creates it on first touch. Read failures
 // fall back to all-on defaults so a DB hiccup never bricks the app.
+// proPriceAmount/proDays are sourced from the PlatformSettings singleton
+// (the admin's pricing card) and ride along in the same response.
 export async function getAppSettings(): Promise<AppSettingsState> {
+  let price = { amount: DEFAULT_APP_SETTINGS.proPriceAmount, days: DEFAULT_APP_SETTINGS.proDays };
+  try {
+    const platform = await getPlatformSettings();
+    price = { amount: platform.subscriptionAmount, days: platform.subscriptionDays };
+  } catch (e) {
+    console.error("Failed to read platform settings for pricing:", e);
+  }
   try {
     const row = await db.appSettings.upsert({
       where: { id: SETTINGS_ID },
@@ -21,6 +31,8 @@ export async function getAppSettings(): Promise<AppSettingsState> {
       whatsappShareEnabled: row.whatsappShareEnabled,
       emailShareEnabled: row.emailShareEnabled,
       pdfDownloadEnabled: row.pdfDownloadEnabled,
+      proPriceAmount: price.amount,
+      proDays: price.days,
     };
   } catch (e) {
     console.error("Failed to read app settings:", e);

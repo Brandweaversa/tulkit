@@ -132,6 +132,9 @@ export interface AuthUser {
 
 // Global platform switches (admin control panel → AppSettings singleton).
 // Client-safe shape shared by the store, admin panel and public settings API.
+// proPriceAmount/proDays come from PlatformSettings (the admin's pricing
+// card) and are surfaced through the same public endpoint so every price
+// mention in the UI follows the amount the owner set.
 export interface AppSettingsState {
   signupOpen: boolean;
   googleSigninEnabled: boolean;
@@ -141,6 +144,8 @@ export interface AppSettingsState {
   whatsappShareEnabled: boolean;
   emailShareEnabled: boolean;
   pdfDownloadEnabled: boolean;
+  proPriceAmount: number;
+  proDays: number;
 }
 
 // Everything on by default — a failed settings fetch never breaks the app.
@@ -153,4 +158,6 @@ export const DEFAULT_APP_SETTINGS: AppSettingsState = {
   whatsappShareEnabled: true,
   emailShareEnabled: true,
   pdfDownloadEnabled: true,
+  proPriceAmount: 100,
+  proDays: 30,
 };

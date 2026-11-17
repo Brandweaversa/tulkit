@@ -6,6 +6,7 @@ import { daysRemaining } from "@/lib/features";
 import { FREE_TIER_LIMITS, FEATURE_KEYS } from "@/lib/types";
 import type { FeatureKey } from "@/lib/types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { getPlatformSettings } from "@/lib/platform-settings";
 
 function unauthorized() {
   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -86,7 +87,8 @@ export async function GET(_request: Request, { params }: Params) {
     .map((f) => f.trim())
     .filter((f) => FEATURE_KEYS.includes(f as FeatureKey));
 
-  // Estimated spend: R99 per 30 days of Pro time consumed so far
+  // Estimated spend: configured price per subscription period consumed so far
+  const platform = await getPlatformSettings();
   const now = Date.now();
   const activatedAt = profile.subscriptionActivatedAt?.getTime() ?? null;
   const expiresAt = profile.subscriptionExpiresAt?.getTime() ?? null;
@@ -95,7 +97,9 @@ export async function GET(_request: Request, { params }: Params) {
     const end = expiresAt && expiresAt < now ? expiresAt : now;
     proDays = Math.max(0, Math.round((end - activatedAt) / (1000 * 60 * 60 * 24)));
   }
-  const estimatedSpendRands = Math.round((proDays / 30) * 99);
+  const estimatedSpendRands = Math.round(
+    (proDays / platform.subscriptionDays) * platform.subscriptionAmount,
+  );
 
   // Business profile completeness (booleans only — no bank values exposed)
   const profileItems = [

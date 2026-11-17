@@ -168,6 +168,10 @@ export interface PlatformSettingsView {
   envOverridden: string[];
 }
 
+export async function getPlatformSettingsView(): Promise<PlatformSettingsView> {
+  return toView(await getPlatformSettings());
+}
+
 export function toView(s: PlatformSettingsResolved): PlatformSettingsView {
   const env = envOverrides();
   return {
@@ -184,7 +188,8 @@ export function toView(s: PlatformSettingsResolved): PlatformSettingsView {
     hasOttApiKey: Boolean(s.ottApiKey),
     hasSmsPortalClientId: Boolean(s.smsPortalClientId),
     hasSmsPortalClientSecret: Boolean(s.smsPortalClientSecret),
-    envOverridden: Object.keys(env),
+    // Names of the env vars currently overriding panel values.
+    envOverridden: Object.values(env),
   };
 }
 

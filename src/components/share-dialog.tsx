@@ -557,6 +557,7 @@ export function ShareDialog({
 }
 
 function LockedNotice({ feature }: { feature: string }) {
+  const appSettings = useStore((s) => s.appSettings);
   return (
     <div className="rounded-md bg-amber-50 border border-amber-200 p-4 text-center">
       <Crown className="h-6 w-6 text-amber-500 mx-auto mb-2" />
@@ -564,7 +565,7 @@ function LockedNotice({ feature }: { feature: string }) {
         {feature} is a Pro feature
       </p>
       <p className="text-xs text-amber-700 mt-1">
-        Upgrade to Pro (R99 / 30 days) to unlock this feature.
+        Upgrade to Pro (R{appSettings.proPriceAmount} / {appSettings.proDays} days) to unlock this feature.
       </p>
     </div>
   );

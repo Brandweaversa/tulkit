@@ -20,6 +20,7 @@ interface Props {
 
 export function SubscriptionBanner({ onUpgradeClick }: Props) {
   const authUser = useStore((s) => s.authUser);
+  const appSettings = useStore((s) => s.appSettings);
   const [reminderOpen, setReminderOpen] = useState(false);
 
   // Show trial reminder popup if 5 or fewer days remain
@@ -118,7 +119,7 @@ export function SubscriptionBanner({ onUpgradeClick }: Props) {
             onClick={onUpgradeClick}
             className="bg-[#0E7C9C] hover:bg-[#0A6582] text-white"
           >
-            Subscribe — R99 / 30 days
+            Subscribe — R{appSettings.proPriceAmount} / {appSettings.proDays} days
           </Button>
         </CardContent>
       </Card>
@@ -137,6 +138,7 @@ function TrialReminderDialog({
   days: number;
   onSubscribe: () => void;
 }) {
+  const appSettings = useStore((s) => s.appSettings);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
@@ -147,7 +149,7 @@ function TrialReminderDialog({
           </DialogTitle>
           <DialogDescription>
             You&apos;ve been enjoying all Pro features. Don&apos;t lose them —
-            subscribe now for just R99 per 30 days.
+            subscribe now for just R{appSettings.proPriceAmount} per {appSettings.proDays} days.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
@@ -164,10 +166,10 @@ function TrialReminderDialog({
           </div>
           <div className="rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 p-3 text-sm">
             <div className="font-semibold text-amber-800 dark:text-amber-200">
-              Pay with cash — R99 / 30 days
+              Pay with cash — R{appSettings.proPriceAmount} / {appSettings.proDays} days
             </div>
             <div className="text-amber-700 dark:text-amber-300 text-xs mt-1">
-              Contact us to pay. We&apos;ll activate your 30-day Pro access immediately.
+              Contact us to pay. We&apos;ll activate your {appSettings.proDays}-day Pro access immediately.
             </div>
           </div>
         </div>

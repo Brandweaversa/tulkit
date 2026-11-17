@@ -163,7 +163,7 @@ export function AdminControlPanel() {
                       </p>
                     </div>
                     <Switch
-                      checked={settings[row.key]}
+                      checked={settings[row.key] as boolean}
                       onCheckedChange={(value) => toggle(row.key, value)}
                       disabled={!settings}
                       aria-label={row.label}

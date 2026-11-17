@@ -221,6 +221,30 @@ model PlatformSettings {
   @@map("platform_settings")
 }
 
+// Payments made against a business profile's subscription. For OTT voucher
+// redemptions the row is persisted BEFORE the RemitVoucher call so the
+// uniqueReference always exists first (idempotent recovery via
+// CheckRemitVoucher after timeouts). Voucher PINs are never stored — only
+// their last 4 digits.
+model SubscriptionPayment {
+  id                String   @id @default(cuid())
+  userId            String
+  businessProfileId String
+  provider          String   @default("ott_voucher") // "ott_voucher" | future providers
+  amount            Float    // rand amount actually redeemed
+  uniqueReference   String   @unique // TUL-... — sent to OTT, used for recovery
+  voucherPinLast4   String?
+  status            String   // "pending" | "success" | "failed" | "unknown"
+  errorCode         String?
+  errorMessage      String?
+  ottResponse       String?  // raw OTT JSON for support/debugging
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([userId, createdAt])
+  @@map("subscription_payments")
+}
+
 // Self-managed OTP verification codes (delivered via SMSPortal). One row per
 // sent code; the code itself is never stored — only a peppered SHA-256 hash.
 model OtpCode {

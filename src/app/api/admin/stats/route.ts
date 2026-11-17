@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { getPlatformSettings } from "@/lib/platform-settings";
 
 // Bucket dates into `weeks` weekly buckets, oldest first.
 function bucketByWeek(dates: Date[], weeks: number, now: number): number[] {
@@ -101,6 +102,9 @@ export async function GET() {
   const trialConversionRate =
     everTrialed > 0 ? Math.round((convertedTrials / everTrialed) * 100) : null;
 
+  // Revenue estimate uses the configured subscription amount (admin pricing card)
+  const platform = await getPlatformSettings();
+
   return NextResponse.json({
     totalUsers,
     activeSubscriptions,
@@ -110,8 +114,10 @@ export async function GET() {
     totalDocuments,
     totalClients,
     recentActivations,
-    // Revenue estimate (R99 per active sub)
-    estimatedMonthlyRevenue: activeSubscriptions * 99,
+    // Revenue estimate (configured price per active sub)
+    estimatedMonthlyRevenue: Math.round(
+      activeSubscriptions * platform.subscriptionAmount,
+    ),
 
     // Engagement: users who actually created documents in the window
     activeUsers7d: activeUsers7d.length,
