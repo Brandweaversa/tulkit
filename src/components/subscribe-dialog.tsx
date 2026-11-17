@@ -24,6 +24,7 @@ interface SubscriptionInfo {
     description: string;
     configured: boolean;
   }[];
+  cashVisible: boolean;
   mobileVerified: boolean;
   role: string;
 }
@@ -65,6 +66,7 @@ export function SubscribeDialog({ open, onOpenChange, onGoToSettings }: Props) {
           amount: 100,
           days: 30,
           methods: [],
+          cashVisible: true,
           mobileVerified: false,
           role: "user",
         }),
@@ -72,6 +74,7 @@ export function SubscribeDialog({ open, onOpenChange, onGoToSettings }: Props) {
   }, [open]);
 
   const voucherMethod = info?.methods.find((m) => m.id === "ott_voucher");
+  const cashVisible = info?.cashVisible ?? true;
   const price = info?.amount ?? 100;
   const days = info?.days ?? 30;
 
@@ -182,7 +185,15 @@ export function SubscribeDialog({ open, onOpenChange, onGoToSettings }: Props) {
             </div>
           ) : (
             <>
-              {/* Payment method: OTT voucher (the only selectable option for now) */}
+              {/* Every payment option hidden — say so instead of a bare dialog */}
+              {!voucherMethod && !cashVisible && (
+                <div className="rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 p-3 text-sm text-amber-800 dark:text-amber-200">
+                  No payment methods are available right now. Please check back
+                  soon, or contact us to activate Pro manually.
+                </div>
+              )}
+
+              {/* Payment method: OTT voucher (hidden when the switch is off) */}
               {voucherMethod && (
                 <div className="rounded-md border p-3 space-y-3">
                   <div className="flex items-center gap-3">
@@ -305,8 +316,9 @@ export function SubscribeDialog({ open, onOpenChange, onGoToSettings }: Props) {
                 </div>
               )}
 
-              {/* Fallback: cash / manual — also the path for non-SA users
-                  until card payments are integrated. */}
+              {/* Fallback: cash / manual — hidden when the switch is off;
+                  also the path for non-SA users until card payments land. */}
+              {cashVisible && (
               <div className="rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 p-3 text-sm space-y-2">
                 <div className="font-semibold text-amber-800 dark:text-amber-200">
                   Or pay cash — R{price} / {days} days
@@ -331,6 +343,7 @@ export function SubscribeDialog({ open, onOpenChange, onGoToSettings }: Props) {
                   <MessageCircle className="h-4 w-4 mr-2" /> Contact us on WhatsApp
                 </Button>
               </div>
+              )}
             </>
           )}
         </div>

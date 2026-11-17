@@ -12,7 +12,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, CheckCircle2, AlertTriangle, Lock, KeyRound, MessageSquare } from "lucide-react";
+import { Loader2, CheckCircle2, AlertTriangle, Lock, KeyRound, MessageSquare, MessageCircle } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "@/hooks/use-toast";
 import { OttLogo } from "@/components/ott-logo";
 
@@ -25,6 +26,8 @@ interface PlatformSettingsView {
   ottTimeoutSeconds: number;
   subscriptionAmount: number;
   subscriptionDays: number;
+  ottVoucherVisible: boolean;
+  cashVisible: boolean;
   hasOttUsername: boolean;
   hasOttPassword: boolean;
   hasOttApiKey: boolean;
@@ -70,6 +73,7 @@ function EnvLock({ note }: { note: string | null }) {
 export function AdminPlatformSettings() {
   const [view, setView] = useState<PlatformSettingsView | null>(null);
   const [savingPricing, setSavingPricing] = useState(false);
+  const [savingMethods, setSavingMethods] = useState(false);
   const [savingOtt, setSavingOtt] = useState(false);
   const [savingSms, setSavingSms] = useState(false);
   const [gettingKey, setGettingKey] = useState(false);
@@ -235,7 +239,9 @@ export function AdminPlatformSettings() {
         <CardHeader>
           <CardTitle className="text-base">Payment methods</CardTitle>
           <CardDescription>
-            What customers can pay with on the subscribe screen. More providers
+            What customers can pay with on the subscribe screen. The switch
+            controls visibility AND acceptance — a hidden method is refused by
+            the payment API too, so this is a real kill switch. More providers
             (card payments via PayFast/Yoco) plug into this list later.
           </CardDescription>
         </CardHeader>
@@ -250,16 +256,49 @@ export function AdminPlatformSettings() {
                 </p>
               </div>
             </div>
-            {ottPaymentReady ? (
-              <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 dark:text-emerald-400 shrink-0">
-                <CheckCircle2 className="h-4 w-4" /> Ready
+            <div className="flex items-center gap-3 shrink-0">
+              {ottPaymentReady ? (
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 dark:text-emerald-400">
+                  <CheckCircle2 className="h-4 w-4" /> Ready
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 dark:text-amber-400">
+                  <AlertTriangle className="h-4 w-4" />
+                  {ottConnectionReady ? "Missing API key or account" : "Credentials missing"}
+                </span>
+              )}
+              <Switch
+                checked={view.ottVoucherVisible}
+                onCheckedChange={(v) =>
+                  save({ ottVoucherVisible: v }, setSavingMethods, "Payment options")
+                }
+                disabled={savingMethods}
+                aria-label="Show OTT Voucher payments"
+              />
+            </div>
+          </div>
+          <div className="flex items-center justify-between gap-3 rounded-lg border p-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="w-9 h-9 rounded-md bg-amber-100 dark:bg-amber-950/40 flex items-center justify-center shrink-0">
+                <MessageCircle className="h-4 w-4 text-amber-700 dark:text-amber-400" />
               </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 dark:text-amber-400 shrink-0">
-                <AlertTriangle className="h-4 w-4" />
-                {ottConnectionReady ? "Missing API key or account" : "Credentials missing"}
-              </span>
-            )}
+              <div className="min-w-0">
+                <p className="text-sm font-medium">Cash via WhatsApp</p>
+                <p className="text-xs text-muted-foreground">
+                  The manual fallback — contact us, pay cash, activate by hand.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 shrink-0">
+              <Switch
+                checked={view.cashVisible}
+                onCheckedChange={(v) =>
+                  save({ cashVisible: v }, setSavingMethods, "Payment options")
+                }
+                disabled={savingMethods}
+                aria-label="Show cash via WhatsApp payments"
+              />
+            </div>
           </div>
           <div className="flex items-center justify-between gap-3 rounded-lg border border-dashed p-3 opacity-60">
             <div className="flex items-center gap-3 min-w-0">

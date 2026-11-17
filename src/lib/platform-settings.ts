@@ -28,6 +28,8 @@ export interface PlatformSettingsResolved {
   smsPortalClientSecret: string;
   subscriptionAmount: number;
   subscriptionDays: number;
+  ottVoucherVisible: boolean;
+  cashVisible: boolean;
 }
 
 const DEFAULTS: PlatformSettingsResolved = {
@@ -44,6 +46,8 @@ const DEFAULTS: PlatformSettingsResolved = {
   smsPortalClientSecret: "",
   subscriptionAmount: 100,
   subscriptionDays: 30,
+  ottVoucherVisible: true,
+  cashVisible: true,
 };
 
 type EnvOverride = Partial<Record<keyof PlatformSettingsResolved, string>>;
@@ -130,6 +134,8 @@ export async function getPlatformSettings(): Promise<PlatformSettingsResolved> {
       smsPortalClientSecret: row.smsPortalClientSecret,
       subscriptionAmount: row.subscriptionAmount,
       subscriptionDays: row.subscriptionDays,
+      ottVoucherVisible: row.ottVoucherVisible,
+      cashVisible: row.cashVisible,
     };
   } catch (e) {
     console.error("Failed to read platform settings:", e);
@@ -159,6 +165,8 @@ export interface PlatformSettingsView {
   ottTimeoutSeconds: number;
   subscriptionAmount: number;
   subscriptionDays: number;
+  ottVoucherVisible: boolean;
+  cashVisible: boolean;
   hasOttUsername: boolean;
   hasOttPassword: boolean;
   hasOttApiKey: boolean;
@@ -183,6 +191,8 @@ export function toView(s: PlatformSettingsResolved): PlatformSettingsView {
     ottTimeoutSeconds: s.ottTimeoutSeconds,
     subscriptionAmount: s.subscriptionAmount,
     subscriptionDays: s.subscriptionDays,
+    ottVoucherVisible: s.ottVoucherVisible,
+    cashVisible: s.cashVisible,
     hasOttUsername: Boolean(s.ottUsername),
     hasOttPassword: Boolean(s.ottPassword),
     hasOttApiKey: Boolean(s.ottApiKey),
@@ -221,7 +231,12 @@ const SECRET_KEYS = [
 export async function updatePlatformSettings(
   patch: Record<string, unknown>,
 ): Promise<PlatformSettingsView> {
-  const data: Record<string, string | number> = {};
+  const data: Record<string, string | number | boolean> = {};
+
+  // Visibility switches (admin → Payment methods card)
+  for (const key of ["ottVoucherVisible", "cashVisible"] as const) {
+    if (typeof patch[key] === "boolean") data[key] = patch[key] as boolean;
+  }
 
   if (patch.ottMode === "test" || patch.ottMode === "live") {
     data.ottMode = patch.ottMode;

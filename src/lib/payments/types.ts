@@ -15,6 +15,10 @@ export interface PaymentMethodDescriptor {
   // Whether the platform currently has everything needed to take this
   // payment (credentials configured, account active, ...).
   isConfigured: (s: PlatformSettingsResolved) => boolean;
+  // Admin visibility switch (Platform settings → Payment methods).
+  // Omitted = always visible. A hidden method disappears from the
+  // subscribe screen and is rejected at the API level too.
+  isVisible?: (s: PlatformSettingsResolved) => boolean;
 }
 
 // Client-safe shape sent to the subscribe dialog.

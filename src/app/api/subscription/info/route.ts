@@ -17,6 +17,9 @@ export async function GET() {
     amount: settings.subscriptionAmount,
     days: settings.subscriptionDays,
     methods: paymentMethodInfos(settings),
+    // The cash/WhatsApp fallback is hard-coded UI, so its visibility flag
+    // travels separately — hidden here = the dialog drops that block.
+    cashVisible: settings.cashVisible,
     mobileVerified: Boolean(user.mobileVerifiedAt),
     role: user.role,
   });

@@ -64,6 +64,10 @@ export async function PUT(request: Request) {
         ...(body.subscriptionDays !== undefined
           ? { subscriptionDays: body.subscriptionDays }
           : {}),
+        ...(body.ottVoucherVisible !== undefined
+          ? { ottVoucherVisible: body.ottVoucherVisible }
+          : {}),
+        ...(body.cashVisible !== undefined ? { cashVisible: body.cashVisible } : {}),
         ...(body.ottVendorId !== undefined ? { ottVendorId: "(updated)" } : {}),
         ...(body.ottAccount !== undefined ? { ottAccount: "(updated)" } : {}),
         ...(body.ottTestBaseUrl !== undefined

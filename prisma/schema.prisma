@@ -216,6 +216,11 @@ model PlatformSettings {
   // Pro subscription pricing (ZAR)
   subscriptionAmount    Float    @default(100)
   subscriptionDays      Int      @default(30)
+  // Payment-option visibility switches (admin → Platform settings →
+  // Payment methods). Hiding an option removes it from the subscribe
+  // screen AND stops the API from accepting that payment type.
+  ottVoucherVisible     Boolean  @default(true)
+  cashVisible           Boolean  @default(true)
   updatedAt             DateTime @updatedAt
 
   @@map("platform_settings")
