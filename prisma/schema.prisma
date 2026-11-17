@@ -60,6 +60,9 @@ model BusinessProfile {
   mobileNumber        String?
   mobileVerifiedAt    DateTime?
   mobileLastOtpSentAt DateTime?
+  // When a user outside South Africa chose to continue without verifying —
+  // they can use the app but cannot pay by OTT voucher until they verify.
+  phoneGateSkippedAt  DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -185,4 +188,53 @@ model AppSettings {
   updatedAt            DateTime @updatedAt
 
   @@map("app_settings")
+}
+
+// Admin-configurable platform settings for payments and SMS (singleton row
+// id "app"). Secrets (OTT username/password/API key, SMSPortal secret) are
+// stored here so the owner manages everything from the admin panel; matching
+// environment variables (OTT_USERNAME, SMSPORTAL_CLIENT_ID, ...) take
+// precedence when set — mirroring the wp-config constants pattern the
+// platform previously used on WordPress. See src/lib/platform-settings.ts.
+model PlatformSettings {
+  id                    String   @id @default("app")
+  // OTT Voucher Redemption API (Specification v6 web services)
+  ottMode               String   @default("test") // "test" | "live"
+  ottTestBaseUrl        String   @default("https://test-api.ott-mobile.com")
+  ottLiveBaseUrl        String   @default("https://api.ott-mobile.com")
+  ottVendorId           String   @default("11")
+  // The 'account' value sent with every RemitVoucher — the same value the
+  // previous WordPress integration sent.
+  ottAccount            String   @default("")
+  ottUsername           String   @default("")
+  ottPassword           String   @default("")
+  ottApiKey             String   @default("")
+  ottTimeoutSeconds     Int      @default(45)
+  // SMSPortal bulk SMS (mobile verification OTPs)
+  smsPortalClientId     String   @default("")
+  smsPortalClientSecret String   @default("")
+  // Pro subscription pricing (ZAR)
+  subscriptionAmount    Float    @default(100)
+  subscriptionDays      Int      @default(30)
+  updatedAt             DateTime @updatedAt
+
+  @@map("platform_settings")
+}
+
+// Self-managed OTP verification codes (delivered via SMSPortal). One row per
+// sent code; the code itself is never stored — only a peppered SHA-256 hash.
+model OtpCode {
+  id        String   @id @default(cuid())
+  userId    String
+  mobile    String   // E.164 the code was sent to, e.g. +27721234567
+  codeHash  String   // sha256("{code}:{userId}:{mobile}:{pepper}")
+  ipHash    String?  // md5 of the requester IP — daily abuse caps
+  attempts  Int      @default(0)
+  sentAt    DateTime @default(now())
+  expiresAt DateTime
+
+  @@index([userId, mobile, sentAt])
+  @@index([ipHash, sentAt])
+  @@index([sentAt])
+  @@map("otp_codes")
 }

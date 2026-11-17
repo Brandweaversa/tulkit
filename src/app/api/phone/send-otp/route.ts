@@ -2,12 +2,11 @@ import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { normalizeSaMobile } from "@/lib/phone";
-import { sendMobileVerification } from "@/lib/twilio";
+import { createAndSendOtp, extractRequestIp } from "@/lib/otp";
 
-// Each SMS costs money, so a resend cooldown is enforced server-side —
-// the client countdown is only a courtesy.
-const RESEND_COOLDOWN_MS = 60_000;
-
+// Sends a 6-digit verification code via SMSPortal. Cooldown, daily caps and
+// delivery are handled by src/lib/otp.ts — a resend is only counted against
+// the daily allowance when a real send actually happens.
 export async function POST(request: Request) {
   const user = await requireAuth();
   if (!user) {
@@ -31,37 +30,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  if (profile.mobileLastOtpSentAt) {
-    const since = Date.now() - profile.mobileLastOtpSentAt.getTime();
-    if (since < RESEND_COOLDOWN_MS) {
-      const retryAfter = Math.ceil((RESEND_COOLDOWN_MS - since) / 1000);
-      return NextResponse.json(
-        {
-          error: `Please wait ${retryAfter} second${retryAfter === 1 ? "" : "s"} before requesting another code.`,
-        },
-        { status: 429, headers: { "Retry-After": String(retryAfter) } },
-      );
-    }
-  }
-
-  const result = await sendMobileVerification(normalized.e164);
+  const result = await createAndSendOtp(
+    user.id,
+    normalized.e164,
+    extractRequestIp(request),
+  );
   if (!result.ok) {
-    console.error("Twilio verification send failed:", result.message);
-    if (result.reason === "not_configured") {
-      return NextResponse.json(
-        {
-          error:
-            "Mobile verification isn't switched on yet. Please try again later.",
-        },
-        { status: 503 },
-      );
-    }
+    const headers = result.retryAfterSeconds
+      ? { "Retry-After": String(result.retryAfterSeconds) }
+      : undefined;
     return NextResponse.json(
-      {
-        error:
-          "Could not send the SMS right now. Please try again in a moment.",
-      },
-      { status: 502 },
+      { error: result.error },
+      { status: result.status, headers },
     );
   }
 

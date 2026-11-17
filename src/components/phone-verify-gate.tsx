@@ -14,6 +14,9 @@ interface Props {
   onVerified: () => void;
   // Offered so a stuck user is never locked out of their session.
   onSignOut?: () => void;
+  // Escape hatch for users outside South Africa: continue without a
+  // verified mobile (voucher payments stay locked until they verify).
+  onSkip?: () => void;
 }
 
 // Full-screen mobile verification gate shown to signed-in users who have not
@@ -24,6 +27,7 @@ export function PhoneVerifyGate({
   initialMobile,
   onVerified,
   onSignOut,
+  onSkip,
 }: Props) {
   const [step, setStep] = useState<"number" | "code">("number");
   const [mobileInput, setMobileInput] = useState(initialMobile ?? "");
@@ -32,6 +36,7 @@ export function PhoneVerifyGate({
   const [busy, setBusy] = useState(false);
   const [resendIn, setResendIn] = useState(0);
   const [verifiedMobile, setVerifiedMobile] = useState<string | null>(null);
+  const [skipConfirm, setSkipConfirm] = useState(false);
   const codeInputRef = useRef<HTMLInputElement | null>(null);
 
   // 60-second resend countdown, mirrored from the server-side cooldown.
@@ -227,6 +232,37 @@ export function PhoneVerifyGate({
                 {resendIn > 0 ? `Resend code in ${resendIn}s` : "Resend code"}
               </button>
             </div>
+          </div>
+        )}
+
+        {onSkip && step === "number" && (
+          <div className="text-center space-y-2">
+            {!skipConfirm ? (
+              <button
+                type="button"
+                onClick={() => setSkipConfirm(true)}
+                className="text-xs text-muted-foreground hover:text-foreground hover:underline"
+              >
+                I&apos;m outside South Africa
+              </button>
+            ) : (
+              <div className="rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-900 p-3 text-left space-y-2">
+                <p className="text-xs text-amber-800 dark:text-amber-200">
+                  Voucher payments need a verified South African mobile number
+                  — OTT sends any unused voucher balance to it by SMS. You can
+                  continue without verifying and pay by other arrangements
+                  (e.g. cash) instead.
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={onSkip}
+                >
+                  Continue without verifying
+                </Button>
+              </div>
+            )}
           </div>
         )}
 

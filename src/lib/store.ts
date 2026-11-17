@@ -27,6 +27,8 @@ interface AuthUser {
   // No mobileVerifiedAt = the user still owes onboarding verification.
   mobileNumber?: string;
   mobileVerifiedAt?: string;
+  // Set when the user chose to continue without verifying (outside SA).
+  phoneGateSkippedAt?: string;
 }
 
 // Typed API error so callers can distinguish failure modes

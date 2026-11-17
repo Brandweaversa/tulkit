@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { normalizeSaMobile } from "@/lib/phone";
-import { checkMobileVerification } from "@/lib/twilio";
+import { verifyOtpCode } from "@/lib/otp";
 
 export async function POST(request: Request) {
   const user = await requireAuth();
@@ -38,34 +38,21 @@ export async function POST(request: Request) {
 
   // The check must be for the number we actually sent a code to — otherwise
   // a stale code for an old number could verify a new one.
-  if (
-    profile.mobileNumber !== normalized.e164 ||
-    !profile.mobileLastOtpSentAt
-  ) {
+  if (profile.mobileNumber !== normalized.e164) {
     return NextResponse.json(
       { error: "Request a new code first." },
       { status: 400 },
     );
   }
 
-  const result = await checkMobileVerification(normalized.e164, code);
+  const result = await verifyOtpCode(user.id, normalized.e164, code);
   if (!result.ok) {
-    console.error("Twilio verification check failed:", result.message);
-    return NextResponse.json(
-      { error: "That code is incorrect or has expired." },
-      { status: 400 },
-    );
-  }
-  if (!result.approved) {
-    return NextResponse.json(
-      { error: "That code is incorrect or has expired." },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: result.error }, { status: result.status });
   }
 
   await db.businessProfile.update({
     where: { userId: user.id },
-    data: { mobileVerifiedAt: new Date() },
+    data: { mobileVerifiedAt: new Date(), phoneGateSkippedAt: null },
   });
 
   return NextResponse.json({ verified: true, mobile: normalized.e164 });
