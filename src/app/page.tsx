@@ -20,6 +20,7 @@ import { BusinessSettings } from "@/components/business-settings";
 import { AdminDashboard } from "@/components/admin-dashboard";
 import { SubscriptionBanner } from "@/components/subscription-banner";
 import { AuthForm } from "@/components/auth/auth-form";
+import { PhoneVerifyGate } from "@/components/phone-verify-gate";
 import { PrivacyNoticeDialog } from "@/components/privacy-notice-dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { AdminNotifications } from "@/components/admin-notifications";
@@ -49,6 +50,8 @@ export default function Home() {
   const fetchAppSettings = useStore((s) => s.fetchAppSettings);
   const loadFromServer = useStore((s) => s.loadFromServer);
   const signOut = useStore((s) => s.signOut);
+  const forcePhoneGate = useStore((s) => s.forcePhoneGate);
+  const setForcePhoneGate = useStore((s) => s.setForcePhoneGate);
   const createDocument = useStore((s) => s.createDocument);
 
   useEffect(() => {
@@ -128,6 +131,25 @@ export default function Home() {
   }
 
   const isAdmin = authUser.role === "admin";
+
+  // Mobile verification gate — every non-admin user must verify a South
+  // African mobile number before the app unlocks. Admins are exempt so the
+  // platform owner can never be locked out (they can verify from Settings).
+  if (!isAdmin && (forcePhoneGate || !authUser.mobileVerifiedAt)) {
+    return (
+      <PhoneVerifyGate
+        email={authUser.email}
+        initialMobile={authUser.mobileNumber}
+        onVerified={() => {
+          setForcePhoneGate(false);
+          void fetchAuthUser();
+        }}
+        onSignOut={() => {
+          void signOut();
+        }}
+      />
+    );
+  }
 
   const navItems: { key: View; label: string; icon: React.ReactNode; adminOnly?: boolean }[] = [
     { key: "dashboard", label: "Dashboard", icon: <LayoutDashboard className="h-4 w-4" /> },

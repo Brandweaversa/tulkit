@@ -23,6 +23,10 @@ interface AuthUser {
   subscriptionExpiresAt?: string;
   trialExpiresAt?: string;
   allocatedFeatures: FeatureKey[];
+  // Personal mobile (E.164) + verification timestamp from the server.
+  // No mobileVerifiedAt = the user still owes onboarding verification.
+  mobileNumber?: string;
+  mobileVerifiedAt?: string;
 }
 
 // Typed API error so callers can distinguish failure modes
@@ -41,6 +45,9 @@ interface StoreState {
   authLoading: boolean;
   authError: string | null;
   justSignedUp: boolean;
+  // When true, the mobile verification gate is shown even to verified users
+  // (used by "Verify a different number" in Settings).
+  forcePhoneGate: boolean;
 
   business: BusinessProfile;
   clients: Client[];
@@ -49,6 +56,9 @@ interface StoreState {
 
   // Auth actions
   fetchAuthUser: () => Promise<void>;
+  // Re-show the full-screen mobile verification gate (e.g. "verify a
+  // different number" from Settings) even when already verified.
+  setForcePhoneGate: (v: boolean) => void;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -107,6 +117,7 @@ export const useStore = create<StoreState>((set, get) => ({
   authLoading: true,
   authError: null,
   justSignedUp: false,
+  forcePhoneGate: false,
 
   business: { ...DEFAULT_BUSINESS },
   clients: [],
@@ -134,6 +145,10 @@ export const useStore = create<StoreState>((set, get) => ({
     } catch {
       set({ authUser: null, authLoading: false });
     }
+  },
+
+  setForcePhoneGate: (v) => {
+    set({ forcePhoneGate: v });
   },
 
   signIn: async (email, password) => {
@@ -193,6 +208,7 @@ export const useStore = create<StoreState>((set, get) => ({
         clients: [],
         documents: [],
         justSignedUp: false,
+        forcePhoneGate: false,
       });
       failedSaves.clear();
       businessSaveFailed = false;

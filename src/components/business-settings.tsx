@@ -20,6 +20,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CURRENCY_OPTIONS } from "@/lib/format";
 import { useStore } from "@/lib/store";
+import { displaySaMobile } from "@/lib/phone";
 import { Upload, Trash2, Save, Check, RefreshCw, AlertTriangle } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { can } from "@/lib/features";
@@ -35,6 +36,7 @@ export function BusinessSettings() {
   const [deleting, setDeleting] = useState(false);
 
   const deleteAccount = useStore((s) => s.deleteAccount);
+  const setForcePhoneGate = useStore((s) => s.setForcePhoneGate);
 
   const isRegularUser = authUser !== null && authUser.role !== "admin";
 
@@ -187,6 +189,45 @@ export function BusinessSettings() {
               onChange={(e) => updateBusiness({ address: e.target.value })}
             />
           </Field>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Mobile verification</CardTitle>
+          <CardDescription>
+            Your verified personal mobile number — used for account security and
+            voucher payments. Separate from the business phone printed on
+            invoices.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center gap-2 text-sm">
+            {authUser?.mobileVerifiedAt ? (
+              <>
+                <Check className="h-4 w-4 text-emerald-600" />
+                <span className="font-medium">
+                  {displaySaMobile(authUser.mobileNumber ?? "")}
+                </span>
+                <span className="text-muted-foreground">verified</span>
+              </>
+            ) : (
+              <>
+                <AlertTriangle className="h-4 w-4 text-amber-500" />
+                <span className="text-muted-foreground">
+                  Not verified yet — you&apos;ll be asked to verify before
+                  continuing.
+                </span>
+              </>
+            )}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setForcePhoneGate(true)}
+          >
+            Verify a different number
+          </Button>
         </CardContent>
       </Card>
 

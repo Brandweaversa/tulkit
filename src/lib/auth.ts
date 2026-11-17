@@ -11,6 +11,10 @@ export interface SessionUser {
   subscriptionExpiresAt?: string;
   trialExpiresAt?: string;
   allocatedFeatures: string[];
+  // Personal mobile, E.164 (e.g. +27721234567) + when it was OTP-verified.
+  // Absent/undefined means "not verified yet" for gate purposes.
+  mobileNumber?: string;
+  mobileVerifiedAt?: string;
 }
 
 // Returns the current authenticated user, or null.
@@ -58,6 +62,8 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
       allocatedFeatures: profile.allocatedFeatures
         ? profile.allocatedFeatures.split(",").filter(Boolean)
         : [],
+      mobileNumber: profile.mobileNumber ?? undefined,
+      mobileVerifiedAt: profile.mobileVerifiedAt?.toISOString() ?? undefined,
     };
   } catch (e) {
     console.error("Auth check failed:", e);

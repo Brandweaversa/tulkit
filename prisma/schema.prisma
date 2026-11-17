@@ -53,6 +53,14 @@ model BusinessProfile {
   // e.g. "pdf_download,whatsapp_share,email_share,custom_branding"
   allocatedFeatures String?
 
+  // Personal mobile, verified by SMS OTP at onboarding (admins excepted).
+  // Distinct from `phone`, which is the business contact printed on invoices.
+  // Stored E.164-normalized, e.g. +27721234567. This is also the number OTT
+  // Mobile will use for voucher vault SMS once voucher payments go live.
+  mobileNumber        String?
+  mobileVerifiedAt    DateTime?
+  mobileLastOtpSentAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
