@@ -15,7 +15,7 @@ export function InvoicePreview({ business, doc }: Props) {
   const client = doc.clientSnapshot;
 
   return (
-    <div className="bg-white text-neutral-900 shadow-sm border rounded-lg overflow-hidden relative flex flex-col aspect-[210/297]">
+    <div className="bg-white text-neutral-900 shadow-sm border rounded-lg overflow-hidden relative flex flex-col aspect-auto sm:aspect-[210/297]">
       {/* accent top band */}
       <div className="h-1.5" style={{ backgroundColor: accent }} />
 
