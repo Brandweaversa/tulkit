@@ -182,6 +182,15 @@ export async function redeemWithVoucher(
       message: "Admin accounts always have full access — no subscription needed.",
     };
   }
+  // OTT vouchers are a South African rail (SA retail points, SA mobile for
+  // the vault SMS). Non-SA users never see the option and are refused here
+  // too, so hiding it is enforced, not cosmetic.
+  if (profile.country !== "ZA") {
+    return {
+      status: "failed",
+      message: "Voucher payments are only available with a South African mobile number.",
+    };
+  }
   if (!profile.mobileVerifiedAt) {
     return {
       status: "mobile_required",

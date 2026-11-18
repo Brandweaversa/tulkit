@@ -11,7 +11,7 @@ import {
   Loader2,
   Shield,
 } from "lucide-react";
-import { useStore, apiFetch } from "@/lib/store";
+import { useStore } from "@/lib/store";
 import { Dashboard } from "@/components/dashboard";
 import { DocumentEditor } from "@/components/document-editor";
 import { ClientsPanel } from "@/components/clients-panel";
@@ -125,30 +125,18 @@ export default function Home() {
 
   const isAdmin = authUser.role === "admin";
 
-  // Mobile verification gate — every non-admin user must verify a South
-  // African mobile number before the app unlocks, unless they chose to
-  // continue without verifying (outside South Africa). Admins are exempt so
-  // the platform owner can never be locked out (they can verify from
-  // Settings).
-  if (
-    !isAdmin &&
-    (forcePhoneGate ||
-      (!authUser.mobileVerifiedAt && !authUser.phoneGateSkippedAt))
-  ) {
+  // Mobile gate — every non-admin user must capture a mobile number before
+  // the app unlocks. South African numbers are verified by SMS OTP; numbers
+  // from other countries are saved without verification. Admins are exempt
+  // so the platform owner can never be locked out (they can capture theirs
+  // from Settings).
+  if (!isAdmin && (forcePhoneGate || !authUser.mobileNumber)) {
     return (
       <PhoneVerifyGate
         email={authUser.email}
         initialMobile={authUser.mobileNumber}
+        initialCountry={authUser.country}
         onVerified={() => {
-          setForcePhoneGate(false);
-          void fetchAuthUser();
-        }}
-        onSkip={async () => {
-          try {
-            await apiFetch("/api/phone/skip", { method: "POST" });
-          } catch {
-            // Non-fatal — the server records the skip; user can retry.
-          }
           setForcePhoneGate(false);
           void fetchAuthUser();
         }}

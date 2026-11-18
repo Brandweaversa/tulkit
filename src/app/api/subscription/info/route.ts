@@ -13,13 +13,21 @@ export async function GET() {
   }
 
   const settings = await getPlatformSettings();
+  // The OTT voucher rail is South-Africa-only: SA retail vouchers, SA mobile
+  // for the vault SMS. Non-SA users never see the option, and the redeem API
+  // rejects them server-side as well.
+  const isSouthAfrican = (user.country ?? "ZA") === "ZA";
+  const methods = isSouthAfrican
+    ? paymentMethodInfos(settings)
+    : paymentMethodInfos(settings).filter((m) => m.id !== "ott_voucher");
   return NextResponse.json({
     amount: settings.subscriptionAmount,
     days: settings.subscriptionDays,
-    methods: paymentMethodInfos(settings),
+    methods,
     // The cash/WhatsApp fallback is hard-coded UI, so its visibility flag
     // travels separately — hidden here = the dialog drops that block.
     cashVisible: settings.cashVisible,
+    country: user.country ?? "ZA",
     mobileVerified: Boolean(user.mobileVerifiedAt),
     role: user.role,
   });

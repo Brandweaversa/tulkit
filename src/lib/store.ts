@@ -29,6 +29,9 @@ interface AuthUser {
   mobileVerifiedAt?: string;
   // Set when the user chose to continue without verifying (outside SA).
   phoneGateSkippedAt?: string;
+  // ISO 3166-1 alpha-2 country of the mobile number (default "ZA"). Non-ZA
+  // numbers are saved without verification and never see OTT vouchers.
+  country?: string;
 }
 
 // Typed API error so callers can distinguish failure modes

@@ -52,7 +52,7 @@ export async function POST(request: Request) {
 
   await db.businessProfile.update({
     where: { userId: user.id },
-    data: { mobileVerifiedAt: new Date(), phoneGateSkippedAt: null },
+    data: { mobileVerifiedAt: new Date(), phoneGateSkippedAt: null, country: "ZA" },
   });
 
   return NextResponse.json({ verified: true, mobile: normalized.e164 });

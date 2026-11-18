@@ -63,6 +63,10 @@ model BusinessProfile {
   // When a user outside South Africa chose to continue without verifying —
   // they can use the app but cannot pay by OTT voucher until they verify.
   phoneGateSkippedAt  DateTime?
+  // ISO 3166-1 alpha-2 country of the mobile number, default "ZA". "ZA"
+  // numbers are SMS-OTP verified; other countries are saved without
+  // verification and never see the OTT voucher option (SA-only rail).
+  country             String  @default("ZA")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

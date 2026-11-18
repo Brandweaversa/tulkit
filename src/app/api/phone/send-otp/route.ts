@@ -52,6 +52,7 @@ export async function POST(request: Request) {
     data: {
       mobileNumber: normalized.e164,
       mobileLastOtpSentAt: new Date(),
+      country: "ZA",
       ...(profile.mobileNumber !== normalized.e164
         ? { mobileVerifiedAt: null }
         : {}),

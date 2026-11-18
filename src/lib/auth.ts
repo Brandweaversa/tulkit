@@ -17,6 +17,8 @@ export interface SessionUser {
   mobileVerifiedAt?: string;
   // When the user chose to continue without verifying (outside South Africa).
   phoneGateSkippedAt?: string;
+  // ISO 3166-1 alpha-2 country of the mobile number (default "ZA").
+  country: string;
 }
 
 // Returns the current authenticated user, or null.
@@ -67,6 +69,7 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
       mobileNumber: profile.mobileNumber ?? undefined,
       mobileVerifiedAt: profile.mobileVerifiedAt?.toISOString() ?? undefined,
       phoneGateSkippedAt: profile.phoneGateSkippedAt?.toISOString() ?? undefined,
+      country: profile.country ?? "ZA",
     };
   } catch (e) {
     console.error("Auth check failed:", e);

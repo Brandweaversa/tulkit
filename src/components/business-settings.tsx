@@ -20,7 +20,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CURRENCY_OPTIONS } from "@/lib/format";
 import { useStore } from "@/lib/store";
-import { displaySaMobile } from "@/lib/phone";
+import { displayMobile } from "@/lib/phone";
 import { Upload, Trash2, Save, Check, RefreshCw, AlertTriangle } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { can } from "@/lib/features";
@@ -207,9 +207,19 @@ export function BusinessSettings() {
               <>
                 <Check className="h-4 w-4 text-emerald-600" />
                 <span className="font-medium">
-                  {displaySaMobile(authUser.mobileNumber ?? "")}
+                  {displayMobile(authUser.mobileNumber ?? "")}
                 </span>
                 <span className="text-muted-foreground">verified</span>
+              </>
+            ) : authUser?.mobileNumber && (authUser.country ?? "ZA") !== "ZA" ? (
+              <>
+                <Check className="h-4 w-4 text-emerald-600" />
+                <span className="font-medium">
+                  {displayMobile(authUser.mobileNumber ?? "")}
+                </span>
+                <span className="text-muted-foreground">
+                  saved — verification not needed outside South Africa
+                </span>
               </>
             ) : (
               <>
@@ -226,7 +236,7 @@ export function BusinessSettings() {
             size="sm"
             onClick={() => setForcePhoneGate(true)}
           >
-            Verify a different number
+            Change number or country
           </Button>
         </CardContent>
       </Card>

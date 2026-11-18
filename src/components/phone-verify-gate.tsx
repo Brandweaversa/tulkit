@@ -3,41 +3,56 @@
 import { useState, useEffect, useRef } from "react";
 import { Loader2, ShieldCheck, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { apiFetch } from "@/lib/store";
-import { normalizeSaMobile, displaySaMobile } from "@/lib/phone";
+import { COUNTRIES, getCountry } from "@/lib/countries";
+import { normalizeMobile, displayMobile } from "@/lib/phone";
 
 interface Props {
   email: string;
   // Number previously captured (may be unverified) — pre-fills the input.
   initialMobile?: string;
-  // Called after the server confirms the OTP — the app refreshes and unlocks.
+  // Country previously captured — pre-selects the country selector.
+  initialCountry?: string;
+  // Called after the server confirms the OTP (South Africa) or saves the
+  // international number (everywhere else) — the app refreshes and unlocks.
   onVerified: () => void;
   // Offered so a stuck user is never locked out of their session.
   onSignOut?: () => void;
-  // Escape hatch for users outside South Africa: continue without a
-  // verified mobile (voucher payments stay locked until they verify).
-  onSkip?: () => void;
 }
 
-// Full-screen mobile verification gate shown to signed-in users who have not
-// verified a South African mobile number yet. Strictly required at
-// onboarding; the number is later used for OTT voucher vault SMS.
+// Full-screen mobile gate shown to signed-in users who have not captured a
+// mobile number yet. South African numbers are verified by SMS OTP; numbers
+// from any other country are saved without verification. Everyone captures a
+// number — there is no skip. The number later feeds the OTT voucher vault SMS
+// (South Africa only).
 export function PhoneVerifyGate({
   email,
   initialMobile,
+  initialCountry,
   onVerified,
   onSignOut,
-  onSkip,
 }: Props) {
   const [step, setStep] = useState<"number" | "code">("number");
+  const [country, setCountry] = useState(
+    initialCountry && getCountry(initialCountry) ? initialCountry : "ZA",
+  );
   const [mobileInput, setMobileInput] = useState(initialMobile ?? "");
   const [codeInput, setCodeInput] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [resendIn, setResendIn] = useState(0);
   const [verifiedMobile, setVerifiedMobile] = useState<string | null>(null);
-  const [skipConfirm, setSkipConfirm] = useState(false);
   const codeInputRef = useRef<HTMLInputElement | null>(null);
+
+  const isSA = country === "ZA";
+  const dial = getCountry(country)?.dial ?? "27";
 
   // 60-second resend countdown, mirrored from the server-side cooldown.
   useEffect(() => {
@@ -52,7 +67,7 @@ export function PhoneVerifyGate({
 
   async function sendCode() {
     setError(null);
-    const check = normalizeSaMobile(mobileInput);
+    const check = normalizeMobile(mobileInput, country);
     if (!check.ok) {
       setError(check.error);
       return;
@@ -74,6 +89,32 @@ export function PhoneVerifyGate({
     }
   }
 
+  async function saveInternational() {
+    setError(null);
+    const check = normalizeMobile(mobileInput, country);
+    if (!check.ok) {
+      setError(check.error);
+      return;
+    }
+    setBusy(true);
+    try {
+      await apiFetch("/api/phone/accept-international", {
+        method: "POST",
+        body: JSON.stringify({ mobile: mobileInput, country }),
+      });
+      onVerified();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Something went wrong.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submitNumber() {
+    if (isSA) await sendCode();
+    else await saveInternational();
+  }
+
   async function verifyCode() {
     setError(null);
     setBusy(true);
@@ -89,7 +130,7 @@ export function PhoneVerifyGate({
     }
   }
 
-  const parsed = normalizeSaMobile(mobileInput);
+  const parsed = normalizeMobile(mobileInput, country);
 
   return (
     <div
@@ -110,13 +151,42 @@ export function PhoneVerifyGate({
           </h1>
           <p className="text-sm text-muted-foreground">
             Signed in as <span className="font-medium">{email}</span>. We verify
-            South African mobile numbers to secure accounts and deliver
-            voucher-payment SMS — it takes under a minute.
+            South African mobile numbers to keep accounts secure — it takes
+            under a minute.
           </p>
         </div>
 
         {step === "number" ? (
           <div className="space-y-4">
+            <div className="space-y-1.5">
+              <label htmlFor="country" className="text-sm font-medium">
+                Country
+              </label>
+              <Select
+                value={country}
+                onValueChange={(v) => {
+                  setCountry(v);
+                  setError(null);
+                }}
+              >
+                <SelectTrigger id="country" className="w-full">
+                  <SelectValue placeholder="Choose your country" />
+                </SelectTrigger>
+                <SelectContent className="max-h-64">
+                  {COUNTRIES.map((c) => (
+                    <SelectItem key={c.code} value={c.code}>
+                      {c.name} (+{c.dial})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {isSA
+                  ? "We'll SMS you a 6-digit code to verify this number."
+                  : "Numbers outside South Africa are saved without verification. Voucher payments are only available in South Africa."}
+              </p>
+            </div>
+
             <div className="space-y-1.5">
               <label htmlFor="mobile" className="text-sm font-medium">
                 Mobile number
@@ -126,21 +196,21 @@ export function PhoneVerifyGate({
                 type="tel"
                 inputMode="tel"
                 autoComplete="tel"
-                placeholder="072 123 4567"
+                placeholder={isSA ? "072 123 4567" : `+${dial} 811 234 567`}
                 value={mobileInput}
                 onChange={(e) => {
                   setMobileInput(e.target.value);
                   setError(null);
                 }}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && parsed.ok && !busy) sendCode();
+                  if (e.key === "Enter" && parsed.ok && !busy) submitNumber();
                 }}
                 className="w-full rounded-md border px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-[#0E7C9C]/40 focus:border-[#0E7C9C]"
                 autoFocus
               />
               {mobileInput.trim() && parsed.ok && (
                 <p className="text-xs text-muted-foreground">
-                  Will be saved as {displaySaMobile(parsed.e164)}
+                  Will be saved as {displayMobile(parsed.e164)}
                 </p>
               )}
             </div>
@@ -148,16 +218,19 @@ export function PhoneVerifyGate({
             {error && <p className="text-sm text-red-600">{error}</p>}
 
             <Button
-              onClick={sendCode}
+              onClick={submitNumber}
               disabled={busy || !parsed.ok}
               className="w-full bg-[#0E7C9C] hover:bg-[#0A6582] text-white"
             >
               {busy ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Sending SMS...
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  {isSA ? "Sending SMS..." : "Saving..."}
                 </>
-              ) : (
+              ) : isSA ? (
                 "Send verification code"
+              ) : (
+                "Save number and continue"
               )}
             </Button>
           </div>
@@ -166,7 +239,7 @@ export function PhoneVerifyGate({
             <p className="text-sm text-muted-foreground">
               We sent a 6-digit code by SMS to{" "}
               <span className="font-medium text-neutral-900">
-                {verifiedMobile && displaySaMobile(verifiedMobile)}
+                {verifiedMobile && displayMobile(verifiedMobile)}
               </span>
               .
             </p>
@@ -232,37 +305,6 @@ export function PhoneVerifyGate({
                 {resendIn > 0 ? `Resend code in ${resendIn}s` : "Resend code"}
               </button>
             </div>
-          </div>
-        )}
-
-        {onSkip && step === "number" && (
-          <div className="text-center space-y-2">
-            {!skipConfirm ? (
-              <button
-                type="button"
-                onClick={() => setSkipConfirm(true)}
-                className="text-xs text-muted-foreground hover:text-foreground hover:underline"
-              >
-                I&apos;m outside South Africa
-              </button>
-            ) : (
-              <div className="rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-900 p-3 text-left space-y-2">
-                <p className="text-xs text-amber-800 dark:text-amber-200">
-                  Voucher payments need a verified South African mobile number
-                  — OTT sends any unused voucher balance to it by SMS. You can
-                  continue without verifying and pay by other arrangements
-                  (e.g. cash) instead.
-                </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full"
-                  onClick={onSkip}
-                >
-                  Continue without verifying
-                </Button>
-              </div>
-            )}
           </div>
         )}
 
